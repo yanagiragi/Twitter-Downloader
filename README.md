@@ -55,6 +55,8 @@ WIP
     * 例如 daySkip 為七天，代表我們每七天丟一次 twitter 進階搜尋
 
     * daySkip 可以視同類似包成 batch 一起搜尋，注意如果 twitter 進階搜尋 結果超過上限 (約5000 筆)，可能會導致資料不完全的問題
+    
+    * 然而，根據 [Issue 1](https://github.com/yanagiragi/Twitter-Downloader/issues/1), 建議還是設為 1 吧
 
 ## 已知 issue
 
