@@ -1,0 +1,25 @@
+{
+  "name": "TwitterPictureDownloader",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.3",
+    "request-promise": "^4.2.4"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yanagiragi/TwitterPictureDownloader.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/yanagiragi/TwitterPictureDownloader/issues"
+  },
+  "homepage": "https://github.com/yanagiragi/TwitterPictureDownloader#readme"
+}
