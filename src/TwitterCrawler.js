@@ -65,8 +65,7 @@ class TwitterCrawler
     }
     
     // default position means nothing, just a placeholder
-    // maxDepth < 0 means search until there is no data
-    async Crawl (position='Haku_Is_Waifu', depth=0, maxDepth=-1) {    
+    async Crawl (position='Haku_Is_Waifu', depth=0, maxDepth=1e9) {    
         const requestResult = await this.Fetch(position, depth)
         const [nextPosition, resultIds, hasNext] = this.Parse(requestResult)
 
@@ -74,8 +73,8 @@ class TwitterCrawler
             this.fetchResults.push(element)
         });
 
-        if (hasNext && maxDepth > 0 && depth <= maxDepth){
-            return this.Crawl(nextPosition, depth + 1)
+        if (hasNext && depth <= maxDepth){
+            return this.Crawl(nextPosition, depth + 1, maxDepth)
         }
         else {
             return this.fetchResults
@@ -84,6 +83,7 @@ class TwitterCrawler
 
 }
 
+// Tests
 if (require.main === module) {
     let startDate = '2018-01-13'
     let endDate = '2019-05-13'
