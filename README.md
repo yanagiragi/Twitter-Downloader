@@ -34,7 +34,11 @@
 
 ## 使用方式
 
-WIP
+* 先 ```npm i -g .``` 後使用 ```yrTwitter```, 或是 ```node bin/cli.js```
+
+* ```yrTwitter --mode info```: 更新資料
+
+* ```yrTwitter --mode image```: 根據資料下載全部圖片
 
 ## 細部參數調整
 
