@@ -2,7 +2,7 @@
 const fs = require('fs-extra')
 const minimist = require('minimist')
 const { TwitterCrawler } = require('..')
-const { DateFormat, IncreaseDate, FetchImage } = require('./utils')
+const { DateFormat, FormatDate, IncreaseDate, FetchImage } = require('./utils')
 
 const daySkip = 7
 const saveDuration = 50
@@ -33,7 +33,7 @@ function UpdateInfo()
             }
             else {
                 let updateCount = 1
-                while (startDate < currentDate){
+                while (FormatDate(startDate) < FormatDate(currentDate)){
                     let nextDate = IncreaseDate(startDate, daySkip)
                     console.log(`Fetching ${account}, Date = ${startDate} ~ ${nextDate}`)
                     let crawlResult = await new TwitterCrawler(account, startDate, nextDate).Crawl()
@@ -47,6 +47,7 @@ function UpdateInfo()
                     })
 
                     if(updateCount > saveDuration){
+                        data.map(x => x.startDate = startDate)
                         fs.writeFileSync(dataPath, JSON.stringify(data, null, 4))
                         fs.writeFileSync(containerPath, JSON.stringify(containers, null, 4))
                         updateCount = 0

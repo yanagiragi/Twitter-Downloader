@@ -19,27 +19,51 @@ class TwitterCrawler
         this.endDate = endDate
         this.fetchResults = []
         this.maxDepth = maxDepth
-        this.lang = 'en-us'
+        this.lang = 'us'
     }
 
-    Fetch(position) {
-        // When depth is 0, which is our first fetch
-        // Use min_position to get the lastest 5 tweets
-        // Else, use max_position to get next 20 tweets
-        let url = `https://twitter.com/i/search/timeline?vertical=default&q=from%3A${this.account}%20since%3A${this.startDate}%20until%3A${this.endDate}&src=typd&include_available_features=1&include_entities=1&lang=${this.lang}&max_position=${position}`
-        return requestPromise(url)
-    }
-
-    Parse(htmlString) {
-        let data = JSON.parse(htmlString)    
-        let position = data["max_position"];    
-        if(!position) {
-            position = data["min_position"]
+    Fetch(position, depth) {
+        // When Depth is 0. we fetch origin search page for finding min_position start positions
+        if(depth == 0) {
+            let url = `https://twitter.com/search?l=&q=from%3A${this.account}%20since%3A${this.startDate}%20until%3A${this.endDate}&src=typd&lang=${this.lang}`
+            return requestPromise(url)
+        }
+        else {
+            let url = `https://twitter.com/i/search/timeline?vertical=default&q=from%3A${this.account}%20since%3A${this.startDate}%20until%3A${this.endDate}&src=typd&include_available_features=1&include_entities=1&lang=${this.lang}&reset_error_state=false&min_position=${position}`
+            return requestPromise(url)
         }
         
-        let $ = cheerio.load(data['items_html'].replace(/\\\"/g,/\"/))
-        let raw = $('.stream-item')
+    }
 
+    Parse(htmlString, depth) {
+        let $ = null
+        let position = null
+        let data = null
+
+        // When Depth is 0. we fetch origin search page for finding min_position start positions
+        if (depth == 0) {
+            $ = cheerio.load(htmlString)
+            position = $('.stream-container')
+
+            if(position.length > 0){
+                position = position[0].attribs['data-min-position']
+            } 
+            else {
+                // Found no data
+                return ['', [], false]
+            }
+        }
+        else {
+            data = JSON.parse(htmlString)    
+            position = data["max_position"];    
+            if(!position) {
+                position = data["min_position"]
+            }
+            
+            $ = cheerio.load(data['items_html'].replace(/\\\"/g,/\"/))            
+        }
+
+        let raw = $('.stream-item.js-stream-item')
         let container = []
 
         for(let i = 0; i < raw.length; ++i) {
@@ -62,13 +86,15 @@ class TwitterCrawler
 
         // return nextPosition, resultIds, hasNext
         // remember to use trim(), since no data means data[items_html] is '\n\n\n\n\n\n\n \n'
-        return [position, container, data['items_html'].trim().length != 0]
+        let hasNext = depth == 0 || data['items_html'].trim().length != 0
+        return [position, container, hasNext]
+        
     }
     
     // default position means nothing, just a placeholder
-    async Crawl (position='Haku_Is_Waifu', depth=0) {    
-        const requestResult = await this.Fetch(position)
-        const [nextPosition, resultIds, hasNext] = this.Parse(requestResult)
+    async Crawl (position='nothing', depth=0) {    
+        const requestResult = await this.Fetch(position, depth)
+        const [nextPosition, resultIds, hasNext] = this.Parse(requestResult, depth)
 
         resultIds.forEach(element => {
             this.fetchResults.push(element)
