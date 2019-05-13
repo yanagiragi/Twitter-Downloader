@@ -62,3 +62,7 @@ typings/
 
 # debug files
 log.txt
+
+bin/Storage/*
+bin/data/data.json
+bin/data/container.json

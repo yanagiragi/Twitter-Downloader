@@ -13,19 +13,20 @@ class TwitterTweet
 
 class TwitterCrawler
 {
-    constructor(account, startDate, endDate) {
+    constructor(account, startDate, endDate, maxDepth=1e9) {
         this.account = account
         this.startDate = startDate
         this.endDate = endDate
         this.fetchResults = []
+        this.maxDepth = maxDepth
         this.lang = 'en-us'
     }
 
-    Fetch(position, depth=0) {
+    Fetch(position) {
         // When depth is 0, which is our first fetch
         // Use min_position to get the lastest 5 tweets
         // Else, use max_position to get next 20 tweets
-        let url = `https://twitter.com/i/search/timeline?vertical=default&q=from%3A${this.account}%20since%3A${this.startDate}%20until%3A${this.endDate}&src=typd&include_available_features=1&include_entities=1&lang=${this.lang}}&${depth == 0 ? 'min' : 'max'}_position=${position}`
+        let url = `https://twitter.com/i/search/timeline?vertical=default&q=from%3A${this.account}%20since%3A${this.startDate}%20until%3A${this.endDate}&src=typd&include_available_features=1&include_entities=1&lang=${this.lang}&max_position=${position}`
         return requestPromise(url)
     }
 
@@ -65,16 +66,16 @@ class TwitterCrawler
     }
     
     // default position means nothing, just a placeholder
-    async Crawl (position='Haku_Is_Waifu', depth=0, maxDepth=1e9) {    
-        const requestResult = await this.Fetch(position, depth)
+    async Crawl (position='Haku_Is_Waifu', depth=0) {    
+        const requestResult = await this.Fetch(position)
         const [nextPosition, resultIds, hasNext] = this.Parse(requestResult)
 
         resultIds.forEach(element => {
             this.fetchResults.push(element)
         });
 
-        if (hasNext && depth <= maxDepth){
-            return this.Crawl(nextPosition, depth + 1, maxDepth)
+        if (hasNext && depth <= this.maxDepth){
+            return this.Crawl(nextPosition, depth + 1)
         }
         else {
             return this.fetchResults
