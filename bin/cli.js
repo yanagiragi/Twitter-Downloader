@@ -4,7 +4,7 @@ const minimist = require('minimist')
 const { TwitterCrawler } = require('..')
 const { DateFormat, FormatDate, IncreaseDate, FetchImage } = require('./utils')
 
-const daySkip = 7
+const daySkip = 1
 const saveDuration = 50
 
 const args = minimist(process.argv.slice(2));
