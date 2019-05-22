@@ -84,8 +84,8 @@ class TwitterCrawler
     
             // Special Cases: Retweeted Users also will get .stream-item class
             // Instead, we additonal check has .account class to verify it
-            // e.g. https://twitter.com/genkianamei/status/943818655833341952, appears when position = '965056919554596864'
-            // e.g. https://twitter.com/comicgrape/status/959260348489523200 (NSFW!), appears when position = '945149415269871618'
+            // e.g. https://twitter.com/pyon_Kti/status/943818655833341952 -> https://twitter.com/genkianamei/status/943818655833341952, appears when position = '965056919554596864'
+            // e.g. https://twitter.com/pyon_Kti/status/959260348489523200 -> https://twitter.com/comicgrape/status/959260348489523200(NSFW!), appears when position = '945149415269871618'
             // note the below sections:
             // <div class="popup-tagged-users-list hidden"> 
             //      ...
