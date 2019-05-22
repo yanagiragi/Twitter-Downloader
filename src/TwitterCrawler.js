@@ -102,9 +102,9 @@ class TwitterCrawler
             if (isRetweetAccount || isRetweetTweet){
                 
                 // output retweet accounts for debugging
-                //if (isRetweetAccount){
-                //    console.log('tweetId (X) ', `https://twitter.com/${this.account}/status/${element.attribs['data-item-id']}`)
-                //}
+                // if (isRetweetAccount){
+                //     console.log('tweetId (X) ', `https://twitter.com/${this.account}/status/${element.attribs['data-item-id']}`)
+                // }
                 continue
             }
 
