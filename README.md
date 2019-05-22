@@ -6,6 +6,22 @@
 
 * 我們使用了 Twitter 進階搜尋 來迴避 Twitter API 有回傳數量限制的問題。
 
+* 然而，Twitter 進階搜尋 的回傳資料並沒有很可靠，因此提供一個從主頁面爬取的方式 (有回傳數量限制)
+
+* 因此建議是，如果你希望持續性的爬取資料(訂閱使用者)，你可能需要的是從主頁面爬取。如果你是想要拿到所有資料，請使用不太可靠的進階搜尋。
+
+* P.S. 目前僅實作 "爬取推文"，Retweet 是被排除的
+
+## 使用方式
+
+* 先 ```npm i -g .``` 後使用 ```yrTwitter```, 或是 ```node bin/cli.js```
+
+* ```yrTwitter --mode mainInfo```: 根據 主頁面 (https://twitter.com/XXXXXXX/) 更新資料，更新到 沒有資料 or 當前資料已經被爬過了
+
+* ```yrTwitter --mode searchInfo```: 根據 進階搜尋結果 (https://twitter.com/search?XXXXXX) 更新資料，從設定檔的 startDate 更新到 今天
+
+* ```yrTwitter --mode image```: 根據資料下載全部圖片
+
 ## 設定檔格式
 
 * 以下是 data.template.json 的示範
@@ -24,21 +40,13 @@
 
     ```
 
-* Id 代表使用者的帳號, startDate 代表要開始搜尋的日期 (請參考 [細部參數調整](#細部參數調整))
+* Id 代表使用者的帳號, startDate 代表要開始搜尋的日期 (只有 searchInfo 這個函式會使用到，請參考 [細部參數調整](#細部參數調整))
 
 * 不確定要填寫哪個日期的話，建議填這個日期的"前幾天"，因為我使用的時區是 GMT-7, 要自己做換算
 
     ![](https://i.imgur.com/FnvD6F9.png)
 
-* 每爬過一些資訊 (請參考 [細部參數調整](#細部參數調整))，即會存檔一次。每次存檔都會更新 startDate 為最後一次搜尋的時間
-
-## 使用方式
-
-* 先 ```npm i -g .``` 後使用 ```yrTwitter```, 或是 ```node bin/cli.js```
-
-* ```yrTwitter --mode info```: 更新資料
-
-* ```yrTwitter --mode image```: 根據資料下載全部圖片
+* 每爬過一些資訊 (請參考 [細部參數調整](#細部參數調整))，即會自動存檔一次。每次存檔都會更新 startDate 為最後一次搜尋的時間
 
 ## 細部參數調整
 
