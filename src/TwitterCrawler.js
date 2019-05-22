@@ -190,7 +190,7 @@ if (require.main === module) {
     let startDate = '2018-01-13'
     let endDate = '2019-05-13'
     let account = 'ZURIFFIN'    
-    new TwitterCrawler(account,startDate,endDate,()=>false).CrawlFromMainPage().then(result => {
+    new TwitterCrawler(account,startDate,endDate, true,()=>false).CrawlFromMainPage().then(result => {
         console.log('result = ', result)
     })
 }
