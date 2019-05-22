@@ -16,7 +16,7 @@ const dataPath = __dirname + '/data/data.json'
 const containerPath = __dirname + '/data/container.json'
 const currentDate = DateFormat(new Date())
 
-const isVerbose = false
+const isVerbose = true
 
 function EarlyBreak(instance, resultIds)
 {
