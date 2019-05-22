@@ -16,7 +16,32 @@ const dataPath = __dirname + '/data/data.json'
 const containerPath = __dirname + '/data/container.json'
 const currentDate = DateFormat(new Date())
 
-function UpdateInfo()
+const isVerbose = false
+
+function EarlyBreak(instance, resultIds)
+{
+    // return false if resultIds.length is 0
+    // possibles conditions:
+    // 1. there is no more uncrawled data. in this case, next iteration will stop automatically
+    // 2. the return data are all retweets, in this case, return false is too force it not to early break
+    if (resultIds.length == 0){
+        return false
+    }
+
+    let duplicatedCount = resultIds.reduce((acc, x) => {
+        const isExist = containers[instance.account].filter(ele => ele.tweetId == x.tweetId).length != 0
+        if (isExist)
+            return acc + 1
+        return acc
+    }, 0)
+
+    if (duplicatedCount == resultIds.length)
+        return true
+    else
+        return false
+}
+
+function UpdateSearchInfo()
 {
     Promise.all(
         data.map (async user => {
@@ -28,20 +53,23 @@ function UpdateInfo()
             }
     
             if (startDate == currentDate) {
-                console.log(`${account} Already up to date. Skip.`)
+                if(isVerbose)
+                    console.log(`${account} Already up to date. Skip.`)
                 return 
             }
             else {
                 let updateCount = 1
                 while (FormatDate(startDate) < FormatDate(currentDate)){
                     let nextDate = IncreaseDate(startDate, daySkip)
-                    console.log(`Fetching ${account}, Date = ${startDate} ~ ${nextDate}`)
-                    let crawlResult = await new TwitterCrawler(account, startDate, nextDate).Crawl()
+                    if(isVerbose)
+                        console.log(`Fetching ${account}, Date = ${startDate} ~ ${nextDate}`)
+                    let crawlResult = await new TwitterCrawler(account, startDate, nextDate, isVerbose).CrawlFromAdvancedSearch()
                     crawlResult.map(x => {
                         const isExist = containers[account].filter(ele => ele.tweetId == x.tweetId).length != 0
                         if (!isExist){
                             containers[account].push(x)
-                            console.log(`update ${x.tweetId}`)
+                            if(isVerbose)
+                                console.log(`update ${x.tweetId}`)
                             updateCount += 1
                         }
                     })
@@ -55,15 +83,52 @@ function UpdateInfo()
 
                     startDate = nextDate
                 }
-                
-                return 
             }
         })
     ).then(res => {
         data.map(x => x.startDate = currentDate)
         fs.writeFileSync(dataPath, JSON.stringify(data, null, 4))
         fs.writeFileSync(containerPath, JSON.stringify(containers, null, 4))
-        console.log(`Done.`)
+        if(isVerbose)
+            console.log(`Done.`)
+    })    
+}
+
+function UpdateMainInfo()
+{
+    Promise.all(
+        data.map (async user => {
+            let account = user.id
+            let startDate = user.startDate
+            
+            if(containers[account] == undefined){
+                containers[account] = []
+            }
+            
+            let updateCount = 1
+            if(isVerbose)
+                console.log(`Fetching ${account} MainInfo`)
+            let crawlResult = await new TwitterCrawler(account, startDate, startDate,isVerbose, EarlyBreak).CrawlFromMainPage()
+
+            crawlResult.map(x => {
+                const isExist = containers[account].filter(ele => ele.tweetId == x.tweetId).length != 0
+                if (!isExist){
+                    containers[account].push(x)
+                    if(isVerbose)
+                        console.log(`update ${x.tweetId}`)
+                    updateCount += 1
+                }
+            })
+
+            if(updateCount > saveDuration){
+                fs.writeFileSync(containerPath, JSON.stringify(containers, null, 4))
+                updateCount = 0
+            }
+        })
+    ).then(res => {
+        fs.writeFileSync(containerPath, JSON.stringify(containers, null, 4))
+        if(isVerbose)
+            console.log(`Done.`)
     })
 }
 
@@ -82,7 +147,7 @@ function UpdateImage()
 
             img.map(async x => {
                 let isDownload = await FetchImage(x, `${StoragePath}/${user.id}/${x.substring(x.lastIndexOf('/')+1)}`)
-                if (isDownload)
+                if (isDownload && isVerbose)
                     console.log(`Successfully Download ${x}.`)
             })
         })
@@ -121,11 +186,18 @@ if (require.main === module) {
         }
     }
 
-    if (mode == "info"){
+    if(mode == 'mainInfo'){
         console.log("============================================")
-        console.log("                UPDATE INFO")
+        console.log("             UPDATE  MAIN  INFO")
         console.log("============================================")
-        UpdateInfo()
+        UpdateMainInfo()
+    }
+
+    else if (mode == "searchInfo"){
+        console.log("============================================")
+        console.log("             UPDATE SEARCH INFO")
+        console.log("============================================")
+        UpdateSearchInfo()
     }
     else if(mode == "image"){
         console.log("============================================")
