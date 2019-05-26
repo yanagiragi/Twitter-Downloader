@@ -2,7 +2,7 @@
 const fs = require('fs-extra')
 const minimist = require('minimist')
 const { TwitterCrawler } = require('..')
-const { DateFormat, FormatDate, IncreaseDate, FetchImage } = require('./utils')
+const { DateFormat, FormatDate, IncreaseDate, FetchImage, FormatTwitterTimestamp } = require('./utils')
 
 const daySkip = 1
 const saveDuration = 50
@@ -39,6 +39,27 @@ function EarlyBreak(instance, resultIds)
         return true
     else
         return false
+}
+
+function Save(UpdateDate=false)
+{
+	if(UpdateDate){
+        data.map(x => x.startDate = currentDate)
+	}
+
+	for(let key in containers){
+		let ele = containers[key]
+		ele.map(x => x.timestamp = FormatTwitterTimestamp(x.timestamp))
+	    ele.sort((a, b) => FormatDate(a.timestamp) < FormatDate(b.timestamp) ? 1 : -1)
+	}
+    
+    fs.writeFileSync(dataPath, JSON.stringify(data, null, 4))
+    
+    fs.writeFileSync(containerPath, JSON.stringify(containers, null, 4))
+    
+    if(isVerbose){
+    	console.log(`Done.`)
+	}
 }
 
 function UpdateSearchInfo()
@@ -86,11 +107,7 @@ function UpdateSearchInfo()
             }
         })
     ).then(res => {
-        data.map(x => x.startDate = currentDate)
-        fs.writeFileSync(dataPath, JSON.stringify(data, null, 4))
-        fs.writeFileSync(containerPath, JSON.stringify(containers, null, 4))
-        if(isVerbose)
-            console.log(`Done.`)
+        Save(UpdateDate=true)
     })    
 }
 
@@ -126,9 +143,7 @@ function UpdateMainInfo()
             }
         })
     ).then(res => {
-        fs.writeFileSync(containerPath, JSON.stringify(containers, null, 4))
-        if(isVerbose)
-            console.log(`Done.`)
+    	Save()
     })
 }
 

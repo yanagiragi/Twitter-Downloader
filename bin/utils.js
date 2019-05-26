@@ -10,6 +10,22 @@ function FormatDate(dateString) {
     return new Date([...splitted])
 }
 
+function FormatTwitterTimestamp(str) {
+	let splitted = str.split(' ')
+
+	// already YYYY-MM-DD HH:MM AM/PM
+	if (splitted.length == 3){
+		return str
+	}
+
+	let monthString = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+	let date = `${splitted[splitted.length - 1]}-${monthString.indexOf(splitted[splitted.length - 2])}-${splitted[splitted.length - 3]}`
+	let time = `${splitted[0]} ${splitted[1]}`
+
+	return `${date} ${time}`
+}
+
 function IncreaseDate(dateString, dayCount=1){
     let date = FormatDate(dateString)
     date.setDate(date.getDate() + dayCount)
@@ -36,5 +52,6 @@ async function FetchImage(url, filename) {
 
 exports.DateFormat = DateFormat
 exports.FormatDate = FormatDate
+exports.FormatTwitterTimestamp = FormatTwitterTimestamp
 exports.IncreaseDate = IncreaseDate
 exports.FetchImage = FetchImage
