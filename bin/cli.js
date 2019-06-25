@@ -163,7 +163,7 @@ function UpdateImage()
             img.map(async x => {
                 let isDownload = await FetchImage(x, `${StoragePath}/${user.id}/${x.substring(x.lastIndexOf('/')+1)}`)
                 if (isDownload && isVerbose)
-                    console.log(`Successfully Download ${x}.`)
+                    console.log(`Successfully Download ${x}`)
             })
         })
     )
