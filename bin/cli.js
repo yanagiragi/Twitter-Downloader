@@ -10,6 +10,7 @@ const saveDuration = 50
 const args = minimist(process.argv.slice(2));
 
 const mode = args.mode || "info"
+const sync = args.sync || "false"
 
 const StoragePath = __dirname + '/Storage'
 const dataPath = __dirname + '/data/data.json'
@@ -62,6 +63,53 @@ function Save(UpdateDate=false)
 	}
 }
 
+async function UpdateSearchInfoSync()
+{
+    for (const user of data) {
+        let account = user.id
+        let startDate = user.startDate
+        
+        if(containers[account] == undefined){
+            containers[account] = []
+        }
+
+        if (startDate == currentDate) {
+            if(isVerbose)
+                console.log(`${account} Already up to date. Skip.`)
+            continue 
+        }
+        else {
+            let updateCount = 1
+            while (FormatDate(startDate) < FormatDate(currentDate)){
+                let nextDate = IncreaseDate(startDate, daySkip)
+                if(isVerbose)
+                    console.log(`Fetching ${account}, Date = ${startDate} ~ ${nextDate}`)
+                let crawlResult = await new TwitterCrawler(account, startDate, nextDate, isVerbose).CrawlFromAdvancedSearch()
+                crawlResult.map(x => {
+                    const isExist = containers[account].filter(ele => ele.tweetId == x.tweetId).length != 0
+                    if (!isExist){
+                        containers[account].push(x)
+                        if(isVerbose)
+                            console.log(`update ${x.tweetId}`)
+                        updateCount += 1
+                    }
+                })
+
+                if(updateCount > saveDuration){
+                    data.map(x => x.startDate = startDate)
+                    fs.writeFileSync(dataPath, JSON.stringify(data, null, 4))
+                    fs.writeFileSync(containerPath, JSON.stringify(containers, null, 4))
+                    updateCount = 0
+                }
+
+                startDate = nextDate
+            }
+        }
+    }
+    
+    Save(UpdateDate=true)
+}
+
 function UpdateSearchInfo()
 {
     Promise.all(
@@ -109,6 +157,39 @@ function UpdateSearchInfo()
     ).then(res => {
         Save(UpdateDate=true)
     })    
+}
+
+async function UpdateMainInfoSync()
+{
+	for (const user of data){
+		let account = user.id
+        let startDate = user.startDate
+        
+        if(containers[account] == undefined){
+            containers[account] = []
+        }
+        
+        let updateCount = 1
+        if(isVerbose)
+            console.log(`Fetching ${account} MainInfo`)
+        let crawlResult = await new TwitterCrawler(account, startDate, startDate,isVerbose, EarlyBreak).CrawlFromMainPage()
+
+        crawlResult.map(x => {
+            const isExist = containers[account].filter(ele => ele.tweetId == x.tweetId).length != 0
+            if (!isExist){
+                containers[account].push(x)
+                if(isVerbose)
+                    console.log(`update ${x.tweetId}`)
+                updateCount += 1
+            }
+        })
+
+        if(updateCount > saveDuration){
+            fs.writeFileSync(containerPath, JSON.stringify(containers, null, 4))
+            updateCount = 0
+        }
+	}
+    Save()
 }
 
 function UpdateMainInfo()
@@ -161,9 +242,11 @@ function UpdateImage()
             }, [])
 
             img.map(async x => {
-                let isDownload = await FetchImage(x, `${StoragePath}/${user.id}/${x.substring(x.lastIndexOf('/')+1)}`)
+                // remove :orig when saving
+                const filename = `${StoragePath}/${user.id}/${x.replace(':orig','').substring(x.lastIndexOf('/')+1)}`
+                let isDownload = await FetchImage(x, filename)
                 if (isDownload && isVerbose)
-                    console.log(`Successfully Download ${x}`)
+                    console.log(`Successfully Download ${x} as ${filename}`)
             })
         })
     )
@@ -205,14 +288,24 @@ if (require.main === module) {
         console.log("============================================")
         console.log("             UPDATE  MAIN  INFO")
         console.log("============================================")
-        UpdateMainInfo()
+        if(sync === "true"){
+            UpdateMainInfoSync()
+        }
+        else {
+            UpdateMainInfo()
+        }
     }
 
     else if (mode == "searchInfo"){
         console.log("============================================")
         console.log("             UPDATE SEARCH INFO")
         console.log("============================================")
-        UpdateSearchInfo()
+        if(sync === "true"){
+            UpdateSearchInfoSync()
+        }
+        else {
+            UpdateSearchInfo()
+        }
     }
     else if(mode == "image"){
         console.log("============================================")
