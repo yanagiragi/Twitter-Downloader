@@ -90,13 +90,17 @@ async function UpdateSearchInfoSync()
                     if (!isExist){
                         containers[account].push(x)
                         if(isVerbose)
-                            console.log(`update ${x.tweetId}`)
+                            console.log(`update ${x.tweetId} for ${user.id}`)
                         updateCount += 1
                     }
+
+                    updateCount += 1
                 })
+                
+                updateCount += 1
 
                 if(updateCount > saveDuration){
-                    data.map(x => x.startDate = startDate)
+                    user.startDate = startDate
                     fs.writeFileSync(dataPath, JSON.stringify(data, null, 4))
                     fs.writeFileSync(containerPath, JSON.stringify(containers, null, 4))
                     updateCount = 0
@@ -116,6 +120,8 @@ function UpdateSearchInfo()
         data.map (async user => {
             let account = user.id
             let startDate = user.startDate
+            
+            console.log(user)
             
             if(containers[account] == undefined){
                 containers[account] = []
@@ -138,15 +144,23 @@ function UpdateSearchInfo()
                         if (!isExist){
                             containers[account].push(x)
                             if(isVerbose)
-                                console.log(`update ${x.tweetId}`)
-                            updateCount += 1
+                                console.log(`update ${x.tweetId} for ${user.id}`)
+                            updateCount += 2
                         }
+                        else {
+	                        // update with weight 1
+	                        updateCount += 1
+	                    }
                     })
+                    
+                    // update anyway, force no data stills increase updateCount
+                    updateCount += 1
 
                     if(updateCount > saveDuration){
-                        data.map(x => x.startDate = startDate)
+                        user.startDate = startDate
                         fs.writeFileSync(dataPath, JSON.stringify(data, null, 4))
                         fs.writeFileSync(containerPath, JSON.stringify(containers, null, 4))
+                        console.log(`Save Snapshot: ${user.id} ${startDate}`)
                         updateCount = 0
                     }
 
@@ -252,6 +266,17 @@ function UpdateImage()
     )
 }
 
+function Clear()
+{
+	for (const user of data) {
+		if (user.createDate){
+			user.startDate = user.createDate
+		}
+	}
+
+	Save()
+}
+
 if (require.main === module) {
 
     fs.ensureDirSync(StoragePath)
@@ -312,6 +337,12 @@ if (require.main === module) {
         console.log("                UPDATE IMAGE")
         console.log("============================================")
         UpdateImage()
+    }
+    else if(mode == "clear"){
+        console.log("============================================")
+        console.log("                CLEAR DATA")
+        console.log("============================================")
+        Clear()
     }
     else {
         console.log("Error When Parsing Arguments.")

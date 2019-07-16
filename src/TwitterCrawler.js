@@ -118,7 +118,7 @@ class TwitterCrawler
                 let rawPhotos = $('.js-adaptive-photo', element)
                 let photos = []
                 for(let j = 0; j < rawPhotos.length; ++j){
-                    photos.push(rawPhotos[j].attribs['data-image-url'])
+                    photos.push(`${rawPhotos[j].attribs['data-image-url']}:orig`)
                 }
 
                 container.push(new TwitterTweet(tweetId, photos, timestamp))           
