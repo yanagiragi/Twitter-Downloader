@@ -121,8 +121,6 @@ function UpdateSearchInfo()
             let account = user.id
             let startDate = user.startDate
             
-            console.log(user)
-            
             if(containers[account] == undefined){
                 containers[account] = []
             }
