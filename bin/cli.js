@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 const fs = require('fs-extra')
 const minimist = require('minimist')
+const Table = require('easy-table')
 const { TwitterCrawler } = require('..')
 const { DateFormat, FormatDate, IncreaseDate, FetchImage, FormatTwitterTimestamp } = require('./utils')
 
@@ -275,6 +276,64 @@ function Clear()
 	Save()
 }
 
+function ListData()
+{
+    const t = new Table
+
+    data.forEach(d => {
+        t.cell('Twitter Id', d.id)
+        t.cell('Create Date', d.createDate)
+        t.cell('Start Date', d.startDate)
+        t.newRow()
+    })
+
+    console.log(t.toString())
+}
+
+function UpdateData(isUpdate, updateData)
+{
+    if (isUpdate === 'NULL') {
+        console.log(`Missing update param.`)
+        console.log(`Wrong Format. Abort.`)
+        return
+    }
+
+    if(updateData === 'NULL') {
+        console.log(`updateData = ${JSON.stringify(updateData)}`)
+        console.log(`Wrong Format. Abort.`)
+        return
+    }
+
+    if(isUpdate) {
+        for (const user of data) {
+            if (user.id === updateData.id) {
+                if (updateData.createDate != 'NULL') {
+                    console.log(`Update ${user.id} createDate from ${user.createDate} to ${updateData.createDate}`)
+                    user.createDate = updateData.createDate                    
+                }
+                if (updateData.startDate != 'NULL') {
+                    console.log(`Update ${user.id} startDate from ${user.startDate} to ${updateData.startDate}`)
+                    user.startDate = updateData.startDate
+                }
+                break
+            }
+        }
+    }
+    else {
+        if (updateData.createDate === 'NULL' || updateData.startDate === 'NULL') {
+            console.log(`updateData = ${JSON.stringify(updateData)}`)
+            console.log(`Wrong Format. Abort.`)
+            return
+        }
+        else {
+            console.log(`Add ${updateData.id}, startDate = ${updateData.startDate}, createDate = ${updateData.createDate}`)
+            data.push(updateData)
+        }
+    }
+
+    Save()
+}
+
 if (require.main === module) {
 
     fs.ensureDirSync(StoragePath)
@@ -318,7 +377,6 @@ if (require.main === module) {
             UpdateMainInfo()
         }
     }
-
     else if (mode == "searchInfo"){
         console.log("============================================")
         console.log("             UPDATE SEARCH INFO")
@@ -341,6 +399,23 @@ if (require.main === module) {
         console.log("                CLEAR DATA")
         console.log("============================================")
         Clear()
+    }
+    else if(mode == "data"){
+        const isUpdate = args.update === 'true' || false
+        console.log("============================================")
+        console.log(`                ${isUpdate ? "Update DATA" : "Add     DATA"}`)
+        console.log("============================================")
+        const updateId = args.id || 'NULL'
+        const updateCreateDate = args.createDate || ( isUpdate ? 'NULL' : updateCreateDate) // default set equal to updateCreateDate when mode = add
+        const updateStartDate = args.startDate || 'NULL'
+        const updateData = { id: updateId, createDate: updateCreateDate, startDate: updateStartDate }
+		UpdateData(isUpdate, updateData)
+    }
+    else if(mode == "list"){
+        console.log("============================================")
+        console.log("                LIST DATA")
+        console.log("============================================")
+        ListData()
     }
     else {
         console.log("Error When Parsing Arguments.")
