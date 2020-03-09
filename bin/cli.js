@@ -18,7 +18,7 @@ const dataPath = __dirname + '/data/data.json'
 const containerPath = __dirname + '/data/container.json'
 const currentDate = DateFormat(new Date())
 
-const isVerbose = true
+const isVerbose = (process.env.NODE_ENV !== 'production')
 
 function EarlyBreak(instance, resultIds)
 {
@@ -367,9 +367,11 @@ if (require.main === module) {
     }
 
     if(mode == 'mainInfo'){
-        console.log("============================================")
-        console.log("             UPDATE  MAIN  INFO")
-        console.log("============================================")
+    	if (isVerbose) {
+        	console.log("============================================")
+        	console.log("             UPDATE  MAIN  INFO")
+        	console.log("============================================")
+		}
         if(sync === "true"){
             UpdateMainInfoSync()
         }
@@ -378,9 +380,11 @@ if (require.main === module) {
         }
     }
     else if (mode == "searchInfo"){
-        console.log("============================================")
-        console.log("             UPDATE SEARCH INFO")
-        console.log("============================================")
+    	if (isVerbose) {
+	        console.log("============================================")
+    	    console.log("             UPDATE SEARCH INFO")
+        	console.log("============================================")
+		}
         if(sync === "true"){
             UpdateSearchInfoSync()
         }
@@ -389,15 +393,19 @@ if (require.main === module) {
         }
     }
     else if(mode == "image"){
-        console.log("============================================")
-        console.log("                UPDATE IMAGE")
-        console.log("============================================")
+    	if (isVerbose) {
+        	console.log("============================================")
+    	    console.log("                UPDATE IMAGE")
+	        console.log("============================================")
+		}
         UpdateImage()
     }
     else if(mode == "clear"){
-        console.log("============================================")
-        console.log("                CLEAR DATA")
-        console.log("============================================")
+    	if (isVerbose) {
+        	console.log("============================================")
+        	console.log("                CLEAR DATA")
+        	console.log("============================================")
+		}
         Clear()
     }
     else if(mode == "data"){
@@ -412,9 +420,11 @@ if (require.main === module) {
 		UpdateData(isUpdate, updateData)
     }
     else if(mode == "list"){
-        console.log("============================================")
-        console.log("                LIST DATA")
-        console.log("============================================")
+    	if (isVerbose) {
+        	console.log("============================================")
+        	console.log("                LIST DATA")
+        	console.log("============================================")
+		}
         ListData()
     }
     else {
