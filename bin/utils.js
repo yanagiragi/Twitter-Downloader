@@ -1,4 +1,6 @@
-const rp = require('request-promise')
+const util = require('util')
+const streamPipeline = util.promisify(require('stream').pipeline)
+const fetch = require('node-fetch')
 const fs = require('fs-extra')
 
 function DateFormat(date) {
@@ -38,8 +40,9 @@ async function FetchImage(url, filename) {
     }
     else {
         try{
-            let result = await rp({ url: url, encoding: 'binary'})
-            fs.writeFileSync(filename, result, 'binary')
+            const resp = await fetch(url)
+            if (!resp.ok) throw new Error(`Error When Downloading ${url}`)
+            await streamPipeline(await resp.body, fs.createWriteStream(filename))
         }
         catch(error){
             console.log(`Error when download ${url}`)

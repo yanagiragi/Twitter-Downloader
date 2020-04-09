@@ -1,5 +1,11 @@
-const requestPromise = require('request-promise')
+const fetch = require('node-fetch')
 const cheerio = require('cheerio')
+
+async function requestPromise(opt) {
+    let resp = await fetch(opt)
+    let ret = await resp.text()
+    return ret
+}
 
 class TwitterTweet
 {
