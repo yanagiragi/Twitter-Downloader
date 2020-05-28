@@ -12,6 +12,7 @@ const args = minimist(process.argv.slice(2));
 
 const mode = args.mode || "info"
 const sync = args.sync || "false"
+const noEarlyBreak = args.deep || "false"
 
 const StoragePath = __dirname + '/Storage'
 const dataPath = __dirname + '/data/data.json'
@@ -185,7 +186,9 @@ async function UpdateMainInfoSync()
         let updateCount = 1
         if(isVerbose)
             console.log(`Fetching ${account} MainInfo`)
-        let crawlResult = await new TwitterCrawler(account, startDate, startDate,isVerbose, EarlyBreak).CrawlFromMainPage()
+
+        const breakHandler = noEarlyBreak === "false" ? (instance, resultIds) => false : EarlyBreak
+        let crawlResult = await new TwitterCrawler(account, startDate, startDate, isVerbose, breakHandler).CrawlFromMainPage()
 
         crawlResult.map(x => {
             const isExist = containers[account].filter(ele => ele.tweetId == x.tweetId).length != 0
@@ -219,7 +222,9 @@ function UpdateMainInfo()
             let updateCount = 1
             if(isVerbose)
                 console.log(`Fetching ${account} MainInfo`)
-            let crawlResult = await new TwitterCrawler(account, startDate, startDate,isVerbose, EarlyBreak).CrawlFromMainPage()
+            
+            const breakHandler = noEarlyBreak === "true" ? (instance, resultIds) => false : EarlyBreak
+            let crawlResult = await new TwitterCrawler(account, startDate, startDate, isVerbose, breakHandler).CrawlFromMainPage()
 
             crawlResult.map(x => {
                 const isExist = containers[account].filter(ele => ele.tweetId == x.tweetId).length != 0
@@ -370,7 +375,8 @@ if (require.main === module) {
     	if (isVerbose) {
         	console.log("============================================")
         	console.log("             UPDATE  MAIN  INFO")
-        	console.log("============================================")
+            console.log("============================================")
+            console.log("Deep = ", noEarlyBreak)
 		}
         if(sync === "true"){
             UpdateMainInfoSync()
