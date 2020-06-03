@@ -187,7 +187,7 @@ async function UpdateMainInfoSync()
         if(isVerbose)
             console.log(`Fetching ${account} MainInfo`)
 
-        const breakHandler = noEarlyBreak === "false" ? (instance, resultIds) => false : EarlyBreak
+        const breakHandler = noEarlyBreak === "true" ? (instance, resultIds) => false : EarlyBreak
         let crawlResult = await new TwitterCrawler(account, startDate, startDate, isVerbose, breakHandler).CrawlFromMainPage()
 
         crawlResult.map(x => {
