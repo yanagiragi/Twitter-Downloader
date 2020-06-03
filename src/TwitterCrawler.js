@@ -1,12 +1,6 @@
 const fetch = require('node-fetch')
 const cheerio = require('cheerio')
 
-async function requestPromise(opt) {
-    let resp = await fetch(opt)
-    let ret = await resp.text()
-    return ret
-}
-
 class TwitterTweet
 {
     constructor(tweetId, photos, timestamp){
@@ -19,171 +13,155 @@ class TwitterTweet
 
 class TwitterCrawler
 {
-    constructor(account, startDate, endDate, verbose=true, EarlyBreakFunc=(resultIds)=>false, maxDepth=1e9) {
-        this.account = account
-        this.startDate = startDate
-        this.endDate = endDate
-        this.fetchResults = []
+    constructor(account, verbose=true, EarlyBreakFunc= x => false, maxDepth=1e9) {
+        
+        this.account = account        
+        this.fetchResults = [] // container for fetched results
         this.EarlyBreak = EarlyBreakFunc
         this.maxDepth = maxDepth
         this.verbose = verbose
-        this.lang = 'us'
-    }
-
-    FetchFromMainPage(position, depth) {
-        // When Depth is 0. we fetch origin search page for finding min_position start positions
-        if(depth == 0) {
-            let url = `https://twitter.com/${this.account}`
-            return requestPromise(url)
-        }
-        else {
-            let url = `https://twitter.com/i/profiles/show/${this.account}/timeline/tweets?include_available_features=1&include_entities=1&max_position=${position}&oldest_unread_id=0&reset_error_state=false`
-            return requestPromise(url)
-        }
-    }
-
-    FetchFromAdvancedSearch(position, depth) {
-        // When Depth is 0. we fetch origin search page for finding min_position start positions
-        if(depth == 0) {
-            let url = `https://twitter.com/search?l=&q=from%3A${this.account}%20since%3A${this.startDate}%20until%3A${this.endDate}&src=typd&lang=${this.lang}`
-            return requestPromise(url)
-        }
-        else {
-            let url = `https://twitter.com/i/search/timeline?vertical=default&q=from%3A${this.account}%20since%3A${this.startDate}%20until%3A${this.endDate}&src=typd&include_available_features=1&include_entities=1&lang=${this.lang}&reset_error_state=false&min_position=${position}`
-            return requestPromise(url)
-        }
-    }
-
-    Parse(htmlString, depth) {
-        let $ = null
-        let position = null
-        let data = null
-
-        // When Depth is 0. we fetch origin search page for finding min_position start positions
-        if (depth == 0) {
-            $ = cheerio.load(htmlString)
-            position = $('.stream-container')
-
-            if(position.length > 0){
-                position = position[0].attribs['data-min-position']
-            } 
-            else {
-                // Found no data
-                return ['', [], false]
-            }
-        }
-        else {
-            data = JSON.parse(htmlString)    
-            position = data["max_position"];    
-            if(!position) {
-                position = data["min_position"]
-            }
-            
-            $ = cheerio.load(data['items_html'].replace(/\\\"/g,/\"/))            
-        }
-
-        let raw = $('.stream-item.js-stream-item')
-        let container = []
-
-        for(let i = 0; i < raw.length; ++i) {
-            let element = raw[i]
-    
-            // Special Cases: Retweeted Users also will get .stream-item class
-            // Instead, we additonal check has .account class to verify it
-            // e.g. https://twitter.com/pyon_Kti/status/943818655833341952 -> https://twitter.com/genkianamei/status/943818655833341952, appears when position = '965056919554596864'
-            // e.g. https://twitter.com/pyon_Kti/status/959260348489523200 -> https://twitter.com/comicgrape/status/959260348489523200(NSFW!), appears when position = '945149415269871618'
-            // note the below sections:
-            // <div class="popup-tagged-users-list hidden"> 
-            //      ...
-            //      <li class="js-stream-item stream-item stream-item js-preexpanded preexpanded open" data-item-id="943818655833341952" id="stream-item-tweet-943818655833341952" data-item-type="tweet">
-            //          <div class="account  js-actionable-user js-profile-popup-actionable " data-screen-name="cametek" data-user-id="70876713" data-name="かめりあ" data-emojified-name="" data-feedback-token="" data-impression-id="">
-            //      ...
-            // </div>
-            let isRetweetAccount = $('.account', element) && $('.tweet', element).length == 0
-            
-            // check not only 'data-retweet-id' but also check 'data-permalink-path' since a user can retweets it's own tweet
-            // e.g. https://twitter.com/pyon_Kti/status/1130285383286059008
-            let isRetweetTweet = $('.tweet', element).length > 0 && 'data-retweet-id' in $('.tweet', element)[0].attribs && $('.tweet', element)[0].attribs['data-permalink-path'].indexOf(`/${this.account}/`) != 0
-            
-            if (isRetweetAccount || isRetweetTweet){
-                
-                // output retweet accounts for debugging
-                // if (isRetweetAccount){
-                //     console.log('tweetId (X) ', `https://twitter.com/${this.account}/status/${element.attribs['data-item-id']}`)
-                // }
-                continue
-            }
-
-            try {
-                // format '/hmw59750476/status/1116955486270545920' to '1116955486270545920'
-                let tweetId = $('.tweet-timestamp', element)[0].attribs.href
-                tweetId = tweetId.substring(tweetId.lastIndexOf('/')+1)
-
-                let timestamp = $('.tweet-timestamp', element)[0].attribs.title
-
-                let rawPhotos = $('.js-adaptive-photo', element)
-                let photos = []
-                for(let j = 0; j < rawPhotos.length; ++j){
-                    photos.push(`${rawPhotos[j].attribs['data-image-url']}:orig`)
-                }
-
-                container.push(new TwitterTweet(tweetId, photos, timestamp))           
-            }
-            catch(err)
-            {
-                console.log(`Error.`)
-                console.log(element)
-            }
-        }
-
-        // Debug Text
-        // console.log(`${this.account} nextPosition = ${position}`)
-
-        // return nextPosition, resultIds, hasNext
-        // remember to use trim(), since no data means data[items_html] is '\n\n\n\n\n\n\n \n'
-        let hasNext = depth == 0 || data['items_html'].trim().length != 0
-        return [position, container, hasNext]
         
+        this.bottomCursor = '' // stay null for the first time
+        this.guestId = '' // update later
+        this.restId = '' // update later        
+
+        // not expose yet.
+        this.dataPerCount = 50
     }
 
-    async CrawlFromMainPage(position='nothing', depth=0)
+    GetAuthorization()
     {
-        const requestResult = await this.FetchFromMainPage(position, depth)
-        const [nextPosition, resultIds, hasNext] = this.Parse(requestResult, depth)
+        return 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA'
+    }
 
-        resultIds.forEach(element => {
+    async GetGuestID()
+    {
+        const uri = `https://twitter.com/${this.account}}`
+        const resp = await fetch(uri)
+        const data = await resp.text()
+    
+        const gtRegex = /decodeURIComponent\("gt=(.*); Max-Age/
+        const match = data.match(gtRegex)
+        const guestId = match[1]
+    
+        return guestId
+    }
+  
+    async GetRestID()
+    {    
+        const uri = `https://api.twitter.com/graphql/-xfUfZsnR_zqjFd-IfrN5A/UserByScreenName?variables=%7B%22screen_name%22%3A%22${this.account}%22%2C%22withHighlightedLabel%22%3Atrue%7D`
+        const options = {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:76.0) Gecko/20100101 Firefox/76.0',
+                'Accept': '*/*',
+                'content-type': 'application/json',
+                'authorization': this.GetAuthorization(),
+                'x-guest-token': this.guestId
+            }
+        }
+        const resp = await fetch(uri, options)
+        const data = await resp.json()
+        const restId = data.data.user['rest_id']        
+        return restId
+    }
+
+    async FetchFromMainPage(position) 
+    {        
+        const uriBase = `https://api.twitter.com/2/timeline/profile/${this.restId}.json?include_profile_interstitial_type=1&include_blocking=1&include_blocked_by=1&include_followed_by=1&include_want_retweets=1&include_mute_edge=1&include_can_dm=1&include_can_media_tag=1&skip_status=1&cards_platform=Web-12&include_cards=1&include_ext_alt_text=true&include_reply_count=1&tweet_mode=extended&include_entities=true&include_user_entities=true&include_ext_media_color=true&include_ext_media_availability=true&send_error_codes=true&simple_quoted_tweet=true&count=${this.dataPerCount}&ext=mediaStats%2ChighlightedLabel%2CcameraMoment&include_quote_count=true`
+        
+        const uri = uriBase + (this.bottomCursor === '' ? '' : `&cursor=${encodeURIComponent(this.bottomCursor)}&ext=mediaStats%2ChighlightedLabel%2CcameraMoment&include_quote_count=true`)
+
+        const options = {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:76.0) Gecko/20100101 Firefox/76.0',
+                'Accept': '*/*',
+                'content-type': 'application/json',
+                'authorization': this.GetAuthorization(),
+                'x-guest-token': this.guestId,            
+                'Accept-Language': 'zh-TW,zh;q=0.8,en-US;q=0.5,en;q=0.3',
+                'x-twitter-client-language': 'zh-tw',
+                'x-twitter-active-user': 'yes',
+                'x-csrf-token': '24e4afcba440e72020f828c5ce2482a9',
+                'Origin': 'https://twitter.com',
+                'DNT': 1, 
+                'Connection': 'keep-alive',
+                'Referer': 'https://twitter.com/',
+                'Pragma': 'no-cache',
+                'Cache-Control': 'no-cache',
+                'TE': 'Trailers'    
+                // -H 'Cookie: personalization_id="v1_aX8enfuWdg+IHJwA7wJxzg=="; guest_id=v1%3A159112143699875582; gt=1267881318202789888; ct0=24e4afcba440e72020f828c5ce2482a9' -H 
+                // `v1%3A${guestId}` = v1:159120449334022098            
+            }
+        }
+
+        if (this.verbose) {
+            console.log(`Fetch :${uri}`)
+        }
+            
+        const resp = await fetch(uri, options)
+        const data = await resp.json()
+        
+        const filterBottomCursor = x => x.content && x.content.operation && x.content.operation.cursor && x.content.operation.cursor.cursorType && x.content.operation.cursor.cursorType === 'Bottom'
+        
+        // data.timeline.instructions[0] -> addEntries, data.timeline.instructions[1] -> pinEntry
+        this.bottomCursor = data.timeline.instructions[0].addEntries.entries.filter(filterBottomCursor)[0].content.operation.cursor.value
+
+        return data
+    }
+
+    Parse(data) 
+    {        
+        const container = []        
+        for(const tweetEntry of Object.entries(data.globalObjects.tweets)) {
+            const tweetId = tweetEntry[0]
+            const tweet = tweetEntry[1]
+            const timestamp = tweet['created_at'] // e.g. Sun May 31 02:40:23 +0000 2020
+            const photos = [] // container for image urls        
+            const entryMedia = tweet.entities.media
+            if (entryMedia) {
+                for(const media of entryMedia){
+                    const url = `${media.media_url}:orig`
+    
+                    // only save image instead of thumbnail of the video
+                    if (url.includes('ext_tw_video_thumb') == false) {
+                        photos.push(url)
+                    }
+                }
+            }    
+            container.push(new TwitterTweet(tweetId, photos, timestamp))
+        }
+        
+        return container
+    }
+
+    async CrawlFromMainPage(depth=0)
+    {
+        // Get guestId (x-guest-token)
+        if (this.guestId === '') {
+            this.guestId = await this.GetGuestID()
+        }
+
+        // Get realId of this.account
+        if (this.restId === '') {
+            this.restId = await this.GetRestID(this.guestId, this.account)
+        }
+
+        const data = await this.FetchFromMainPage(depth)
+        const results = this.Parse(data)
+
+        results.forEach(element => {
             this.fetchResults.push(element)
         });
         
         // pass params to callback provided from cli.js
         // the purpose is for caching the results for early breaking the recursively crawls
-        let shouldBreak = this.EarlyBreak(this, resultIds)
+        const shouldBreak = this.EarlyBreak(this, results)
 
         if(this.verbose)
             console.log(`[${this.account}.CrawlFromMainPage] depth = ${depth}, shouldBreak = ${shouldBreak}`)
             
-        if (shouldBreak == false && hasNext && depth <= this.maxDepth) {
-            return this.CrawlFromMainPage(nextPosition, depth + 1)
-        }
-        else {
-            return this.fetchResults
-        }
-    }
-
-    async CrawlFromAdvancedSearch(position='nothing', depth=0)
-    {
-        const requestResult = await this.FetchFromAdvancedSearch(position, depth)
-        const [nextPosition, resultIds, hasNext] = this.Parse(requestResult, depth)
-
-        resultIds.forEach(element => {
-            this.fetchResults.push(element)
-        });
-
-        if(this.verbose)
-            console.log(`[${this.account}.CrawlFromAdvancedSearch] depth = ${depth}`)
-
-        if (hasNext && depth <= this.maxDepth) {
-            return this.CrawlFromAdvancedSearch(nextPosition, depth + 1)
+        if (shouldBreak == false && depth <= this.maxDepth) {
+            return this.CrawlFromMainPage(depth + 1)
         }
         else {
             return this.fetchResults
@@ -193,10 +171,8 @@ class TwitterCrawler
 
 // Tests
 if (require.main === module) {
-    let startDate = '2018-01-13'
-    let endDate = '2019-05-13'
     let account = 'ZURIFFIN'    
-    new TwitterCrawler(account,startDate,endDate, true,()=>false).CrawlFromMainPage().then(result => {
+    new TwitterCrawler(account, true, ()=>false, maxDepth=1).CrawlFromMainPage().then(result => {
         console.log('result = ', result)
     })
 }
