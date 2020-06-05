@@ -25,19 +25,26 @@ const isVerbose = (process.env.NODE_ENV !== 'production')
 var data = []
 var containers = {}
 
-function EarlyBreak (instance, resultIds) {
-	// if there were no more results
-	if (resultIds.length === 0) {
-		return true
+function EarlyBreak (instance, resultContainers) {
+
+	const [tweetContainer, retweetContainer] = resultContainers
+
+	// if there were no more results, it might just due to that most tweets are reply
+	if (tweetContainer.length === 0) {
+		if (retweetContainer.length === 0) {
+			return true
+		}
+		// check if the tweets are all reply
+		// return false
 	}
 
-	let duplicatedCount = resultIds.reduce((acc, x) => {
+	let duplicatedCount = tweetContainer.reduce((acc, x) => {
 		const isExist = containers[instance.account].filter(ele => ele.tweetId === x.tweetId).length !== 0
 		if (isExist) { return acc + 1 }
 		return acc
 	}, 0)
 
-	return (duplicatedCount === resultIds.length)
+	return (duplicatedCount === tweetContainer.length)
 }
 
 function Save (UpdateDate = false) {

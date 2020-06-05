@@ -14,6 +14,7 @@ class TwitterCrawler {
 	constructor (account, verbose = true, EarlyBreakFunc = x => false, maxDepth = 1e9) {
 		this.account = account
 		this.fetchResults = [] // container for fetched results
+		this.fetchRetweets = [] // container for fetched retweets for detect duplicate cases
 		this.EarlyBreak = EarlyBreakFunc
 		this.maxDepth = maxDepth
 		this.verbose = verbose
@@ -23,7 +24,8 @@ class TwitterCrawler {
 		this.restId = '' // update later
 
 		// not expose yet.
-		this.dataPerCount = 50
+		this.dataPerCount = 20
+		this.debug = false
 	}
 
 	GetAuthorization () {
@@ -87,6 +89,10 @@ class TwitterCrawler {
 			}
 		}
 
+		if (this.debug) {
+			console.log(uri, options)
+		}
+
 		const resp = await fetch(uri, options)
 		const data = await resp.json()
 
@@ -100,14 +106,11 @@ class TwitterCrawler {
 
 	Parse (data) {
 		try {
-			const container = []
+			const retweetContainer = []
+			const tweetContainer = []
 			for (const tweetEntry of Object.entries(data.globalObjects.tweets)) {
 				const tweetId = tweetEntry[0]
 				const tweet = tweetEntry[1]
-
-				if (tweet.retweeted_status_id_str !== undefined || tweet.user_id_str !== this.restId) {
-					continue
-				}
 
 				const timestamp = tweet['created_at'] // e.g. Sun May 31 02:40:23 +0000 2020
 				const photos = [] // container for image urls
@@ -122,12 +125,17 @@ class TwitterCrawler {
 						}
 					}
 				}
-				container.push(new TwitterTweet(tweetId, photos, timestamp))
+
+				if (tweet.retweeted_status_id_str !== undefined || tweet.user_id_str !== this.restId) {
+					retweetContainer.push(new TwitterTweet(tweetId, photos, timestamp))
+				} else {
+					tweetContainer.push(new TwitterTweet(tweetId, photos, timestamp))
+				}
 			}
-			return container
+			return [tweetContainer, retweetContainer]
 		} catch (err) {
-			console.logErr(err)
-			return []
+			console.log(err)
+			return [[], []]
 		}
 	}
 
@@ -151,24 +159,33 @@ class TwitterCrawler {
 		}
 
 		const data = await this.FetchFromMainPage(depth)
-		const rawResults = this.Parse(data)
+
+		const [ rawTweetResults, rawRetweetResults ] = this.Parse(data)
+
+		if (this.debug) {
+			console.log(JSON.stringify(data))
+		}
 
 		// Sometimes twitter returns duplicated results from different api calls
 		// To deal with this, we filter the raw_results and leave only new TwitterTweets
-		const isNotDuplicate = ele => {
-			return this.fetchResults.length === 0 || this.fetchResults.filter(x => x.tweetId === ele.tweetId).length === 0
+		const isNotDuplicate = (ele, checkContainer) => {
+			return checkContainer.length === 0 || checkContainer.filter(x => x.tweetId === ele.tweetId).length === 0
 		}
-		const results = rawResults.filter(isNotDuplicate)
+		const results = rawTweetResults.filter(x => isNotDuplicate(x, this.fetchResults))
+		const retweetResults = rawRetweetResults.filter(x => isNotDuplicate(x, this.fetchRetweets))
 
-		results.forEach(element => {
-			this.fetchResults.push(element)
-		})
+		// store the crawled results
+		results.forEach(element => this.fetchResults.push(element))
+		retweetResults.forEach(element => this.fetchRetweets.push(element))
 
 		// pass params to callback provided from cli.js
 		// the purpose is for caching the results for early breaking the recursively crawls
-		const shouldBreak = this.EarlyBreak(this, results)
+		const shouldBreak = this.EarlyBreak(this, [ rawTweetResults, rawRetweetResults ])
 
-		if (this.verbose) { console.log(`[${this.account}.CrawlFromMainPage](${this.fetchResults.length})<${results.length}> depth = ${depth}, shouldBreak = ${shouldBreak}`) }
+		// eslint-disable-next-line no-trailing-spaces
+		if (this.verbose) { 
+			console.log(`[${this.account}.CrawlFromMainPage] (${this.fetchResults.length}) <${rawTweetResults.length}, ${results.length}, ${rawRetweetResults.length}, ${retweetResults.length}>, depth = ${depth}, shouldBreak = ${shouldBreak}`) 
+		}
 
 		if (shouldBreak === false && depth <= this.maxDepth) {
 			return this.CrawlFromMainPage(depth + 1)
