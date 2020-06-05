@@ -25,6 +25,7 @@ class TwitterCrawler {
 
 		// not expose yet.
 		this.dataPerCount = 20
+		this.includeReplies = true // since some user left the image in the replies, set to true instead
 		this.debug = false
 	}
 
@@ -62,7 +63,7 @@ class TwitterCrawler {
 	}
 
 	async FetchFromMainPage (position) {
-		const uriBase = `https://api.twitter.com/2/timeline/profile/${this.restId}.json?include_profile_interstitial_type=1&include_blocking=1&include_blocked_by=1&include_followed_by=1&include_want_retweets=1&include_mute_edge=1&include_can_dm=1&include_can_media_tag=1&skip_status=1&cards_platform=Web-12&include_cards=1&include_ext_alt_text=true&include_reply_count=1&tweet_mode=extended&include_entities=true&include_user_entities=true&include_ext_media_color=true&include_ext_media_availability=true&send_error_codes=true&simple_quoted_tweet=true&count=${this.dataPerCount}&ext=mediaStats%2ChighlightedLabel%2CcameraMoment&include_quote_count=true`
+		const uriBase = `https://api.twitter.com/2/timeline/profile/${this.restId}.json?include_profile_interstitial_type=1&include_blocking=1&include_blocked_by=1&include_followed_by=1&include_want_retweets=1&include_mute_edge=1&include_can_dm=1&include_can_media_tag=1&skip_status=1&cards_platform=Web-12&include_cards=1&include_ext_alt_text=true&include_reply_count=1&tweet_mode=extended&include_entities=true&include_user_entities=true&include_ext_media_color=true&include_ext_media_availability=true&send_error_codes=true&simple_quoted_tweet=true&count=${this.dataPerCount}&ext=mediaStats%2ChighlightedLabel%2CcameraMoment&include_quote_count=true&include_tweet_replies=${this.includeReplies.toString()}`
 
 		const uri = uriBase + (this.bottomCursor === '' ? '' : `&cursor=${encodeURIComponent(this.bottomCursor)}&ext=mediaStats%2ChighlightedLabel%2CcameraMoment&include_quote_count=true`)
 
@@ -180,11 +181,11 @@ class TwitterCrawler {
 
 		// pass params to callback provided from cli.js
 		// the purpose is for caching the results for early breaking the recursively crawls
-		const shouldBreak = this.EarlyBreak(this, [ rawTweetResults, rawRetweetResults ])
+		const shouldBreak = this.EarlyBreak(this, [ results, retweetResults ])
 
 		// eslint-disable-next-line no-trailing-spaces
 		if (this.verbose) { 
-			console.log(`[${this.account}.CrawlFromMainPage] (${this.fetchResults.length}) <${rawTweetResults.length}, ${results.length}, ${rawRetweetResults.length}, ${retweetResults.length}>, depth = ${depth}, shouldBreak = ${shouldBreak}`) 
+			console.log(`[${this.account}.CrawlFromMainPage] (${this.fetchResults.length}) <${results.length}, ${rawTweetResults.length}, ${rawRetweetResults.length}, ${retweetResults.length}>, depth = ${depth}, shouldBreak = ${shouldBreak}`)
 		}
 
 		if (shouldBreak === false && depth <= this.maxDepth) {

@@ -25,8 +25,12 @@ const isVerbose = (process.env.NODE_ENV !== 'production')
 var data = []
 var containers = {}
 
-function EarlyBreak (instance, resultContainers) {
+function NoEarlyBreak (instance, resultContainers) {
+	const [tweetContainer, retweetContainer] = resultContainers
+	return tweetContainer.length === 0 && retweetContainer.length === 0
+}
 
+function EarlyBreak (instance, resultContainers) {
 	const [tweetContainer, retweetContainer] = resultContainers
 
 	// if there were no more results, it might just due to that most tweets are reply
@@ -190,7 +194,7 @@ async function UpdateUserMainInfo (user) {
 		let updateCount = 1
 		if (isVerbose) { console.log(`Fetching ${account} MainInfo`) }
 
-		const breakHandler = noEarlyBreak === 'true' ? (instance, resultIds) => resultIds.length === 0 : EarlyBreak
+		const breakHandler = noEarlyBreak === 'true' ? NoEarlyBreak : EarlyBreak
 		let crawlResult = await new TwitterCrawler(account, isVerbose, breakHandler).CrawlFromMainPage()
 
 		crawlResult.map(x => {
