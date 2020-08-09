@@ -37,20 +37,11 @@ class TwitterCrawler {
 		const uri = `https://twitter.com/${this.account}}`
 		const resp = await fetch(uri)
 		const data = await resp.text()
-		
-		// use substring as workaround for now due to weird behaviour of regex
-		// Test Code:
-		/*
-		const rawCookie = 'gt=1279938239407616001; Max-Age=10200; Expires=Mo'
-		//console.log(rawCookie)
 
 		const gtRegex = /"gt=([0-9]*);/
-		const match = rawCookie.match(gtRegex)
-		console.log(match) // should be 127993... but null instead
-		//const guestId = match[1]
-		*/
-		const rawCookie = resp.headers.raw()['set-cookie'].join(';').toString()
-		const guestId = rawCookie.substring('gt='.length, rawCookie.indexOf(';'))
+		const match = data.match(gtRegex)
+		const guestId = match[1]
+		
 		return guestId
 	}
 
@@ -111,6 +102,8 @@ class TwitterCrawler {
 
 		if (typeof data.timeline == 'undefined') {
 			console.log(`Error When Request ${uri}, probably due to rate limit`)
+			console.log(data)
+			console.log(this.guestId)
 		}
 
 		// data.timeline.instructions[0] -> addEntries, data.timeline.instructions[1] -> pinEntry
