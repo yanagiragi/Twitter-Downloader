@@ -1,9 +1,12 @@
+#!/bin/bash
+
 REPO_ROOT=/Twitter-Downloader
 DOCKER_IMAGE_TAG=twitterdl
 
 MODE=$1
 
-sudo docker run -it \
+# use rootless mode
+~/bin/docker run -it \
 	-v $(pwd)/data:/$REPO_ROOT/bin/data \
 	-v $(pwd)/Storage:$REPO_ROOT/bin/Storage \
 	$DOCKER_IMAGE_TAG \
