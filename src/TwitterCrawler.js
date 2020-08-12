@@ -2,7 +2,8 @@ const fetch = require('node-fetch')
 const cheerio = require('cheerio')
 
 class TwitterTweet {
-	constructor (tweetId, photos, timestamp) {
+	constructor (tweetId, photos, timestamp, content) {
+		this.content = content
 		this.tweetId = tweetId
 		this.photos = photos
 		this.timestamp = timestamp
@@ -120,6 +121,7 @@ class TwitterCrawler {
 				const tweetId = tweetEntry[0]
 				const tweet = tweetEntry[1]
 
+				const content = tweet['full_text']
 				const timestamp = tweet['created_at'] // e.g. Sun May 31 02:40:23 +0000 2020
 				const photos = [] // container for image urls
 				const entryMedia = tweet.entities.media
@@ -135,9 +137,9 @@ class TwitterCrawler {
 				}
 
 				if (tweet.retweeted_status_id_str !== undefined || tweet.user_id_str !== this.restId) {
-					retweetContainer.push(new TwitterTweet(tweetId, photos, timestamp))
+					retweetContainer.push(new TwitterTweet(tweetId, photos, timestamp, content))
 				} else {
-					tweetContainer.push(new TwitterTweet(tweetId, photos, timestamp))
+					tweetContainer.push(new TwitterTweet(tweetId, photos, timestamp, content))
 				}
 			}
 			return [tweetContainer, retweetContainer]
