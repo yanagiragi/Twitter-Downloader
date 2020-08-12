@@ -195,7 +195,7 @@ async function UpdateUserMainInfo (user) {
 		if (isVerbose) { console.log(`Fetching ${account} MainInfo`) }
 
 		const breakHandler = noEarlyBreak === 'true' ? NoEarlyBreak : EarlyBreak
-		let crawlResult = await new TwitterCrawler(account, isVerbose, breakHandler).CrawlFromMainPage()
+		let [ crawlResult, crawlRetweets ] = await new TwitterCrawler(account, isVerbose, breakHandler).CrawlFromMainPage()
 
 		crawlResult.map(x => {
 			const isExist = containers[account].filter(ele => ele.tweetId === x.tweetId).length !== 0

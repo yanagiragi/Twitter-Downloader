@@ -198,7 +198,7 @@ class TwitterCrawler {
 		if (shouldBreak === false && depth <= this.maxDepth) {
 			return this.CrawlFromMainPage(depth + 1)
 		} else {
-			return this.fetchResults
+			return [ this.fetchResults, this.fetchRetweets ]
 		}
 	}
 }
