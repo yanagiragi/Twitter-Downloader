@@ -1,5 +1,8 @@
 const fetch = require('node-fetch')
 const cheerio = require('cheerio')
+const { string } = require('easy-table')
+
+const UserAgent = "User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:84.0) Gecko/20100101 Firefox/84.0"
 
 class TwitterTweet {
 	constructor (tweetId, photos, timestamp, content) {
@@ -36,13 +39,17 @@ class TwitterCrawler {
 
 	async GetGuestID () {
 		const uri = `https://twitter.com/${this.account}}`
-		const resp = await fetch(uri)
+		const resp = await fetch(uri, {
+			headers : {
+				"User-Agent": UserAgent
+			}
+		})
 		const data = await resp.text()
 
 		const gtRegex = /"gt=([0-9]*);/
 		const match = data.match(gtRegex)
 		const guestId = match[1]
-		
+
 		return guestId
 	}
 
@@ -50,7 +57,7 @@ class TwitterCrawler {
 		const uri = `https://api.twitter.com/graphql/-xfUfZsnR_zqjFd-IfrN5A/UserByScreenName?variables=%7B%22screen_name%22%3A%22${this.account}%22%2C%22withHighlightedLabel%22%3Atrue%7D`
 		const options = {
 			headers: {
-				'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:76.0) Gecko/20100101 Firefox/76.0',
+				'User-Agent': UserAgent,
 				'Accept': '*/*',
 				'content-type': 'application/json',
 				'authorization': this.GetAuthorization(),
@@ -71,7 +78,7 @@ class TwitterCrawler {
 
 		const options = {
 			headers: {
-				'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:76.0) Gecko/20100101 Firefox/76.0',
+				'User-Agent': UserAgent,
 				'Accept': '*/*',
 				'content-type': 'application/json',
 				'authorization': this.GetAuthorization(),

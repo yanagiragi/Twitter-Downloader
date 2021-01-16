@@ -225,7 +225,9 @@ async function UpdateMainInfoSync () {
 function UpdateMainInfo () {
 	Promise.all(
 		data.map(async user => UpdateUserMainInfo(user))
-	).then(res => Save())
+	)
+	.catch(err => console.error(err))
+	.finally(() => Save())
 }
 
 function UpdateImage () {
