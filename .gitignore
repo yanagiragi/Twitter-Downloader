@@ -67,3 +67,8 @@ bin/Storage/*
 bin/Storage_legacy/*
 bin/data/data.json
 bin/data/container.json
+
+bin/Thumb/*
+bin/container.json
+bin/data/data.debug.json
+bin/genThumb.sh
