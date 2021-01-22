@@ -46,6 +46,10 @@ class TwitterCrawler {
 		})
 		const data = await resp.text()
 
+		if (this.isDebug) {
+			console.log(data)
+		}
+		
 		const gtRegex = /"gt=([0-9]*);/
 		const match = data.match(gtRegex)
 		const guestId = match[1]
