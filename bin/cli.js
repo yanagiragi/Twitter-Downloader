@@ -14,16 +14,44 @@ const args = minimist(process.argv.slice(2))
 const mode = args.mode || 'info'
 const sync = args.sync || 'false'
 const noEarlyBreak = args.deep || 'false'
-
-const StoragePath = path.join(__dirname, '/Storage')
-const dataPath = path.join(__dirname, 'data', 'data.json')
-const containerPath = path.join(__dirname, 'data', 'container.json')
-const currentDate = DateFormat(new Date())
+const useRemoteStorage = args.useRemoteStorage || 'false'
 
 const isVerbose = (process.env.NODE_ENV !== 'production')
 
+const StoragePath = (useRemoteStorage === 'true' ? path.join(__dirname, '/Storage_Remote') : path.join(__dirname, '/Storage'))
+const dataPath = (useRemoteStorage === 'true' ? path.join(__dirname, '/Storage_Remote', 'data.json') : path.join(__dirname, 'data', 'data.json'))
+const containerPath = (useRemoteStorage === 'true' ? path.join(__dirname, '/Storage_Remote', 'container.json') : path.join(__dirname, 'data', 'container.json'))
+const currentDate = DateFormat(new Date())
+const remoteStorageCache = UpdateRemoteStorageCache()
+
 var data = []
 var containers = {}
+
+function UpdateRemoteStorageCache() {
+	if (useRemoteStorage !== 'true'){
+		return []
+	}
+
+	console.log('Updating Remote Storage Cache ...')
+	const res = fs.readdirSync(StoragePath)
+		.filter(x => x.includes('.json') == false) // filter container.json and data.json
+		.map(x => fs.readdirSync(path.join(StoragePath, x)).map(ele => path.join(StoragePath, x, ele)))
+		.flat()
+		console.log('Updating Remote Storage Cache Done, length = ' + res.length)
+	return res
+}
+
+async function DownloadImage(url, filename) {
+
+	if (useRemoteStorage === 'true' && remoteStorageCache.includes(filename)) {
+		return false
+	}
+	else if (useRemoteStorage !== 'true' && fs.existsSync(filename)) {
+		return false
+	}
+
+	return FetchImage(url, filename)
+}
 
 function NoEarlyBreak (instance, resultContainers) {
 	const [tweetContainer, retweetContainer] = resultContainers
@@ -52,6 +80,11 @@ function EarlyBreak (instance, resultContainers) {
 }
 
 function Save (UpdateDate = false) {
+
+	if (useRemoteStorage === 'true') {
+		console.log('Saving ...')
+	}
+
 	if (UpdateDate) {
 		data.map(x => {
 			x.startDate = currentDate
@@ -70,7 +103,7 @@ function Save (UpdateDate = false) {
 	fs.writeFileSync(containerPath, JSON.stringify(containers, null, 4))
 
 	if (isVerbose) {
-		console.log('Done.')
+		console.log('Save Done.')
 	}
 }
 
@@ -231,7 +264,7 @@ function UpdateMainInfo () {
 }
 
 function UpdateImage () {
-	Promise.all(
+	return Promise.all(
 		data.map(async user => {
 			fs.ensureDirSync(`${StoragePath}/${user.id}`)
 
@@ -241,8 +274,8 @@ function UpdateImage () {
 
 			img.map(async x => {
 				// remove :orig when saving
-				const filename = `${StoragePath}/${user.id}/${x.replace(':orig', '').substring(x.lastIndexOf('/') + 1)}`
-				let isDownload = await FetchImage(x, filename)
+				const filename = path.join(StoragePath, user.id, x.replace(':orig', '').substring(x.lastIndexOf('/') + 1))
+				let isDownload = await DownloadImage(x, filename)
 				if (isDownload && isVerbose) { console.log(`Successfully Download ${x} as ${filename}`) }
 			})
 		})

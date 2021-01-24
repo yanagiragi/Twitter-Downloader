@@ -43,20 +43,16 @@ function IncreaseDate (dateString, dayCount = 1) {
 }
 
 async function FetchImage (url, filename) {
-	if (fs.existsSync(filename)) {
+	try {
+		const resp = await fetch(url)
+		if (!resp.ok) throw new Error(`Error When Downloading ${url}`)
+		await streamPipeline(await resp.body, fs.createWriteStream(filename))
+	} catch (error) {
+		console.log(`Error when download ${url}`)
 		return false
-	} else {
-		try {
-			const resp = await fetch(url)
-			if (!resp.ok) throw new Error(`Error When Downloading ${url}`)
-			await streamPipeline(await resp.body, fs.createWriteStream(filename))
-		} catch (error) {
-			console.log(`Error when download ${url}`)
-			return false
-		}
-
-		return true
 	}
+
+	return true
 }
 
 exports.DateFormat = DateFormat
