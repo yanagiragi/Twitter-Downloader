@@ -50,11 +50,15 @@ class TwitterCrawler {
 			console.log(data)
 		}
 		
-		const gtRegex = /"gt=([0-9]*);/
-		const match = data.match(gtRegex)
-		const guestId = match[1]
-
-		return guestId
+		try {
+			const gtRegex = /"gt=([0-9]*);/
+			const match = data.match(gtRegex)
+			const guestId = match[1]
+			return guestId
+		} catch (err) {
+			throw new Error(`GetGuestID() of ${this.account} Error: ${err}`)
+		}
+		
 	}
 
 	async GetRestID () {
@@ -70,9 +74,14 @@ class TwitterCrawler {
 			}
 		}
 		const resp = await fetch(uri, options)
-		const data = await resp.json()
-		const restId = data.data.user['rest_id']
-		return restId
+
+		try {
+			const data = await resp.json()
+			const restId = data.data.user['rest_id']
+			return restId
+		} catch (err) {
+			throw new Error(`GetRestID() of ${this.account} Error: ${err}`)
+		}		
 	}
 
 	async FetchFromMainPage (position) {
@@ -125,22 +134,15 @@ class TwitterCrawler {
 	}
 
 	async Preprocess() {
+		
 		// Get guestId (x-guest-token)
 		if (this.guestId === '') {
-			try {
-				this.guestId = await this.GetGuestID()
-			} catch (err) {
-				throw new Error(`GetGuestID() of ${this.account} Error: ${err}`)
-			}
+			this.guestId = await this.GetGuestID()
 		}
 
 		// Get realId of this.account
 		if (this.restId === '') {
-			try {
-				this.restId = await this.GetRestID(this.guestId, this.account)
-			} catch (err) {
-				throw new Error(`GetRestID() of ${this.account} Error: ${err}`)
-			}
+			this.restId = await this.GetRestID(this.guestId, this.account)
 		}
 	}
 
@@ -221,6 +223,7 @@ class TwitterCrawler {
 	}
 	
 	async CrawlFromAdvancedSearch(startDate, endDate, countPerRequest = 1000) {
+		
 		await this.Preprocess()
 
 		const uriBase = 'https://twitter.com/i/api/2/search/adaptive.json?include_profile_interstitial_type=1&include_blocking=1&include_blocked_by=1&include_followed_by=1&include_want_retweets=1&include_mute_edge=1&include_can_dm=1&include_can_media_tag=1&skip_status=1&cards_platform=Web-12&include_cards=1&include_ext_alt_text=true&include_quote_count=true&include_reply_count=1&tweet_mode=extended&include_entities=true&include_user_entities=true&include_ext_media_color=true&include_ext_media_availability=true&send_error_codes=true&simple_quoted_tweet=true&query_source=typed_query&pc=1&spelling_corrections=1&ext=mediaStats%2ChighlightedLabel'

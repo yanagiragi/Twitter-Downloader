@@ -107,7 +107,7 @@ function Save (UpdateDate = false) {
 	}
 }
 
-/* async function UpdateSearchInfoSync()
+async function UpdateSearchInfoSync()
 {
     for (const user of data) {
         let account = user.id
@@ -127,30 +127,38 @@ function Save (UpdateDate = false) {
             while (FormatDate(startDate) < FormatDate(currentDate)){
                 let nextDate = IncreaseDate(startDate, daySkip)
                 if(isVerbose)
-                    console.log(`Fetching ${account}, Date = ${startDate} ~ ${nextDate}`)
-                let crawlResult = await new TwitterCrawler(account, startDate, nextDate, isVerbose).CrawlFromAdvancedSearch()
-                crawlResult.map(x => {
-                    const isExist = containers[account].filter(ele => ele.tweetId == x.tweetId).length != 0
-                    if (!isExist){
-                        containers[account].push(x)
-                        if(isVerbose)
-                            console.log(`update ${x.tweetId} for ${user.id}`)
-                        updateCount += 1
-                    }
+					console.log(`Fetching ${account}, Date = ${startDate} ~ ${nextDate}`)
+				try {
+					let crawlResult = await new TwitterCrawler(account, isVerbose).CrawlFromAdvancedSearch(startDate, nextDate)
+					const tweetResult = crawlResult[0]
+					tweetResult.map(x => {
+						const isExist = containers[account].filter(ele => ele.tweetId == x.tweetId).length != 0
+						if (!isExist){
+							containers[account].push(x)
+							if(isVerbose)
+								console.log(`update ${x.tweetId} for ${user.id}`)
+							updateCount += 1
+						}
+	
+						updateCount += 1
+					})
+	
+					updateCount += 1
+	
+					if(updateCount > saveDuration){
+						user.startDate = startDate
+						fs.writeFileSync(dataPath, JSON.stringify(data, null, 4))
+						fs.writeFileSync(containerPath, JSON.stringify(containers, null, 4))
+						updateCount = 0
+					}
+	
+					startDate = nextDate
 
-                    updateCount += 1
-                })
-
-                updateCount += 1
-
-                if(updateCount > saveDuration){
-                    user.startDate = startDate
-                    fs.writeFileSync(dataPath, JSON.stringify(data, null, 4))
-                    fs.writeFileSync(containerPath, JSON.stringify(containers, null, 4))
-                    updateCount = 0
-                }
-
-                startDate = nextDate
+				} catch (err) {
+					console.error(`Error occurs on ${account}: ${JSON.stringify(err)}`)
+					break
+				}
+				
             }
         }
     }
@@ -180,40 +188,47 @@ function UpdateSearchInfo()
                     let nextDate = IncreaseDate(startDate, daySkip)
                     if(isVerbose)
                         console.log(`Fetching ${account}, Date = ${startDate} ~ ${nextDate}`)
-                    let crawlResult = await new TwitterCrawler(account, startDate, nextDate, isVerbose).CrawlFromAdvancedSearch()
-                    crawlResult.map(x => {
-                        const isExist = containers[account].filter(ele => ele.tweetId == x.tweetId).length != 0
-                        if (!isExist){
-                            containers[account].push(x)
-                            if(isVerbose)
-                                console.log(`update ${x.tweetId} for ${user.id}`)
-                            updateCount += 2
-                        }
-                        else {
-	                        // update with weight 1
-	                        updateCount += 1
-	                    }
-                    })
-
-                    // update anyway, force no data stills increase updateCount
-                    updateCount += 1
-
-                    if(updateCount > saveDuration){
-                        user.startDate = startDate
-                        fs.writeFileSync(dataPath, JSON.stringify(data, null, 4))
-                        fs.writeFileSync(containerPath, JSON.stringify(containers, null, 4))
-                        console.log(`Save Snapshot: ${user.id} ${startDate}`)
-                        updateCount = 0
-                    }
-
-                    startDate = nextDate
+					
+					try {
+						let crawlResult = await new TwitterCrawler(account, isVerbose).CrawlFromAdvancedSearch(startDate, nextDate)
+						const tweetResult = crawlResult[0]
+						tweetResult.map(x => {
+							const isExist = containers[account].filter(ele => ele.tweetId == x.tweetId).length != 0
+							if (!isExist){
+								containers[account].push(x)
+								if(isVerbose)
+									console.log(`update ${x.tweetId} for ${user.id}`)
+								updateCount += 2
+							}
+							else {
+								// update with weight 1
+								updateCount += 1
+							}
+						})
+	
+						// update anyway, force no data stills increase updateCount
+						updateCount += 1
+	
+						if(updateCount > saveDuration){
+							user.startDate = startDate
+							fs.writeFileSync(dataPath, JSON.stringify(data, null, 4))
+							fs.writeFileSync(containerPath, JSON.stringify(containers, null, 4))
+							console.log(`Save Snapshot: ${user.id} ${startDate}`)
+							updateCount = 0
+						}
+	
+						startDate = nextDate
+					} catch (err) {
+						console.error(`Error occurs on ${account}: ${JSON.stringify(err)}`)
+						break
+					}                    
                 }
             }
         })
     ).then(res => {
         Save(UpdateDate=true)
     })
-} */
+}
 
 async function UpdateUserMainInfo (user) {
 	try {
@@ -391,9 +406,9 @@ if (require.main === module) {
 			console.log('============================================')
 		}
 		if (sync === 'true') {
-			// UpdateSearchInfoSync()
+			UpdateSearchInfoSync()
 		} else {
-			// UpdateSearchInfo()
+			UpdateSearchInfo()
 		}
 	} else if (mode === 'image') {
 		if (isVerbose) {
