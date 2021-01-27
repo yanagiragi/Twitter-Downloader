@@ -124,6 +124,26 @@ class TwitterCrawler {
 		return data
 	}
 
+	async Preprocess() {
+		// Get guestId (x-guest-token)
+		if (this.guestId === '') {
+			try {
+				this.guestId = await this.GetGuestID()
+			} catch (err) {
+				throw new Error(`GetGuestID() of ${this.account} Error: ${err}`)
+			}
+		}
+
+		// Get realId of this.account
+		if (this.restId === '') {
+			try {
+				this.restId = await this.GetRestID(this.guestId, this.account)
+			} catch (err) {
+				throw new Error(`GetRestID() of ${this.account} Error: ${err}`)
+			}
+		}
+	}
+
 	Parse (data) {
 		try {
 			const retweetContainer = []
@@ -161,23 +181,8 @@ class TwitterCrawler {
 	}
 
 	async CrawlFromMainPage (depth = 0) {
-		// Get guestId (x-guest-token)
-		if (this.guestId === '') {
-			try {
-				this.guestId = await this.GetGuestID()
-			} catch (err) {
-				throw new Error(`GetGuestID() of ${this.account} Error: ${err}`)
-			}
-		}
 
-		// Get realId of this.account
-		if (this.restId === '') {
-			try {
-				this.restId = await this.GetRestID(this.guestId, this.account)
-			} catch (err) {
-				throw new Error(`GetRestID() of ${this.account} Error: ${err}`)
-			}
-		}
+		await this.Preprocess()
 
 		const data = await this.FetchFromMainPage(depth)
 
@@ -214,13 +219,64 @@ class TwitterCrawler {
 			return [ this.fetchResults, this.fetchRetweets ]
 		}
 	}
+	
+	async CrawlFromAdvancedSearch(startDate, endDate, countPerRequest = 1000) {
+		await this.Preprocess()
+
+		const uriBase = 'https://twitter.com/i/api/2/search/adaptive.json?include_profile_interstitial_type=1&include_blocking=1&include_blocked_by=1&include_followed_by=1&include_want_retweets=1&include_mute_edge=1&include_can_dm=1&include_can_media_tag=1&skip_status=1&cards_platform=Web-12&include_cards=1&include_ext_alt_text=true&include_quote_count=true&include_reply_count=1&tweet_mode=extended&include_entities=true&include_user_entities=true&include_ext_media_color=true&include_ext_media_availability=true&send_error_codes=true&simple_quoted_tweet=true&query_source=typed_query&pc=1&spelling_corrections=1&ext=mediaStats%2ChighlightedLabel'
+
+		const query = `(from%3A${this.account})%20until%3A${endDate}%20since%3A${startDate}`
+		const uri = `${uriBase}&count=${countPerRequest}&q=${query}`
+
+		const options = {
+			headers: {
+				'User-Agent': UserAgent,
+				'Accept': '*/*',
+				'content-type': 'application/json',
+				'authorization': this.GetAuthorization(),
+				'x-guest-token': this.guestId,
+				'Accept-Language': 'zh-TW,zh;q=0.8,en-US;q=0.5,en;q=0.3',
+				'x-twitter-client-language': 'zh-tw',
+				'x-twitter-active-user': 'yes',
+				'x-csrf-token': '24e4afcba440e72020f828c5ce2482a9',
+				'Origin': 'https://twitter.com',
+				'DNT': 1,
+				'Connection': 'keep-alive',
+				'Referer': 'https://twitter.com/',
+				'Pragma': 'no-cache',
+				'Cache-Control': 'no-cache',
+				'TE': 'Trailers'
+			}
+		}
+
+		const resp = await fetch(uri, options)
+		const data = await resp.json()
+
+		const [ rawTweetResults, rawRetweetResults ] = this.Parse(data)
+		
+		// Sometimes twitter returns duplicated results from different api calls
+		// To deal with this, we filter the raw_results and leave only new TwitterTweets
+		const isNotDuplicate = (ele, checkContainer) => {
+			return checkContainer.length === 0 || checkContainer.filter(x => x.tweetId === ele.tweetId).length === 0
+		}
+		const results = rawTweetResults.filter(x => isNotDuplicate(x, this.fetchResults))
+		const retweetResults = rawRetweetResults.filter(x => isNotDuplicate(x, this.fetchRetweets))
+
+		return [ results, retweetResults ]
+	}
+
 }
 
 // Tests
 if (require.main === module) {
-	let account = 'ZURIFFIN'
-	new TwitterCrawler(account, true, () => false, 1).CrawlFromMainPage().then(result => {
+	let account = 'HitenKei'
+	const crawler = new TwitterCrawler(account, true, () => false, 1)
+	
+	crawler.CrawlFromMainPage().then(result => {
 		console.log('result = ', result)
+		crawler.CrawlFromAdvancedSearch('2020-02-08', '2020-03-01').then(result => {
+			console.log('result = ', result)
+		})
 	})
 }
 
