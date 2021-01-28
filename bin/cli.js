@@ -107,142 +107,99 @@ function Save (UpdateDate = false) {
 	}
 }
 
-async function UpdateSearchInfoSync()
-{
-    for (const user of data) {
-        let account = user.id
-        let startDate = user.startDate
+async function UpdateUserSearchInfo (user) {
+	let account = user.id
+	let startDate = user.startDate
 
-        if(containers[account] == undefined){
-            containers[account] = []
-        }
+	if(containers[account] == undefined){
+		containers[account] = []
+	}
 
-        if (startDate == currentDate) {
-            if(isVerbose)
-                console.log(`${account} Already up to date. Skip.`)
-            continue
-        }
-        else {
-            let updateCount = 1
-            while (FormatDate(startDate) < FormatDate(currentDate)){
-                let nextDate = IncreaseDate(startDate, daySkip)
-                if(isVerbose)
-					console.log(`Fetching ${account}, Date = ${startDate} ~ ${nextDate}`)
-				try {
-					let crawlResult = await new TwitterCrawler(account, isVerbose).CrawlFromAdvancedSearch(startDate, nextDate)
-					const tweetResult = crawlResult[0]
-					tweetResult.map(x => {
-						const isExist = containers[account].filter(ele => ele.tweetId == x.tweetId).length != 0
-						if (!isExist){
-							containers[account].push(x)
-							if(isVerbose)
-								console.log(`update ${x.tweetId} for ${user.id}`)
-							updateCount += 1
-						}
-	
-						updateCount += 1
-					})
-	
-					updateCount += 1
-	
-					if(updateCount > saveDuration){
-						user.startDate = startDate
-						fs.writeFileSync(dataPath, JSON.stringify(data, null, 4))
-						fs.writeFileSync(containerPath, JSON.stringify(containers, null, 4))
-						updateCount = 0
-					}
-	
-					startDate = nextDate
-
-				} catch (err) {
-					console.error(`Error occurs on ${account}: ${JSON.stringify(err)}`)
-					break
-				}
+	if (startDate == currentDate) {
+		if(isVerbose)
+			console.log(`${account} Already up to date. Skip.`)
+		return
+	}
+	else {
+		let updateCount = 1
+		const crawler = new TwitterCrawler(account, isVerbose)
+		while (FormatDate(startDate) < FormatDate(currentDate)){
+			let nextDate = IncreaseDate(startDate, daySkip)
+			if(isVerbose)
+				console.log(`Fetching ${account}, Date = ${startDate} ~ ${nextDate}`)
+			try {
+				let crawlResult = await crawler.CrawlFromAdvancedSearch(startDate, nextDate)
 				
-            }
-        }
-    }
+				const tweetResult = crawlResult[0]
+				tweetResult.map(x => {
+					const isExist = containers[account].filter(ele => ele.tweetId == x.tweetId).length != 0
+					if (!isExist){
+						containers[account].push(x)
+						if(isVerbose)
+							console.log(`update ${x.tweetId} for ${user.id}`)
+						// update with double weight when new tweet is found
+						updateCount += 2
+					}
 
-    Save(UpdateDate=true)
+					// update with weight 1
+					updateCount += 1
+				})
+
+				// update anyway, force no data stills increase updateCount
+				updateCount += 1
+
+				if(updateCount > saveDuration){
+					user.startDate = startDate
+					fs.writeFileSync(dataPath, JSON.stringify(data, null, 4))
+					fs.writeFileSync(containerPath, JSON.stringify(containers, null, 4))
+					console.log(`Save Snapshot: ${user.id} ${startDate}`)
+					updateCount = 0
+				}
+
+				startDate = nextDate
+
+			} catch (err) {
+				console.log(`Error occurs on ${account}: ${err.message}`)
+				break
+			}
+
+			// update anyway, force to save current date when error occurs
+			user.startDate = startDate
+		}
+	}
+
+	user.startDate = startDate
 }
 
-function UpdateSearchInfo()
-{
-    Promise.all(
-        data.map (async user => {
-            let account = user.id
-            let startDate = user.startDate
+async function UpdateSearchInfoSync() {
+	for (const user of data) {
+        await UpdateUserSearchInfo(user)
+    }
+    Save()
+}
 
-            if(containers[account] == undefined){
-                containers[account] = []
-            }
-
-            if (startDate == currentDate) {
-                if(isVerbose)
-                    console.log(`${account} Already up to date. Skip.`)
-                return
-            }
-            else {
-                let updateCount = 1
-                while (FormatDate(startDate) < FormatDate(currentDate)){
-                    let nextDate = IncreaseDate(startDate, daySkip)
-                    if(isVerbose)
-                        console.log(`Fetching ${account}, Date = ${startDate} ~ ${nextDate}`)
-					
-					try {
-						let crawlResult = await new TwitterCrawler(account, isVerbose).CrawlFromAdvancedSearch(startDate, nextDate)
-						const tweetResult = crawlResult[0]
-						tweetResult.map(x => {
-							const isExist = containers[account].filter(ele => ele.tweetId == x.tweetId).length != 0
-							if (!isExist){
-								containers[account].push(x)
-								if(isVerbose)
-									console.log(`update ${x.tweetId} for ${user.id}`)
-								updateCount += 2
-							}
-							else {
-								// update with weight 1
-								updateCount += 1
-							}
-						})
-	
-						// update anyway, force no data stills increase updateCount
-						updateCount += 1
-	
-						if(updateCount > saveDuration){
-							user.startDate = startDate
-							fs.writeFileSync(dataPath, JSON.stringify(data, null, 4))
-							fs.writeFileSync(containerPath, JSON.stringify(containers, null, 4))
-							console.log(`Save Snapshot: ${user.id} ${startDate}`)
-							updateCount = 0
-						}
-	
-						startDate = nextDate
-					} catch (err) {
-						console.error(`Error occurs on ${account}: ${JSON.stringify(err)}`)
-						break
-					}                    
-                }
-            }
-        })
-    ).then(res => {
-        Save(UpdateDate=true)
+function UpdateSearchInfo() {
+	const tasks = data.map(user => UpdateUserSearchInfo(user))
+    Promise.all(tasks).then(res => {
+        Save()
     })
 }
 
 async function UpdateUserMainInfo (user) {
+	
+	let account = user.id
+	let startDate = user.startDate
+
+	if (containers[account] === undefined) {
+		containers[account] = []
+	}
+
+	let updateCount = 1
+	if (isVerbose) { console.log(`Fetching ${account} MainInfo`) }
+
+	const breakHandler = noEarlyBreak === 'true' ? NoEarlyBreak : EarlyBreak
+
 	try {
-		let account = user.id
-		let startDate = user.startDate
-
-		if (containers[account] === undefined) {
-			containers[account] = []
-		}
-
-		let updateCount = 1
-		if (isVerbose) { console.log(`Fetching ${account} MainInfo`) }
-
-		const breakHandler = noEarlyBreak === 'true' ? NoEarlyBreak : EarlyBreak
 		let [ crawlResult, crawlRetweets ] = await new TwitterCrawler(account, isVerbose, breakHandler).CrawlFromMainPage()
 
 		crawlResult.map(x => {
@@ -259,7 +216,7 @@ async function UpdateUserMainInfo (user) {
 			updateCount = 0
 		}
 	} catch (err) {
-		console.log(`${err}`)
+		console.log(`Error occurs on ${account}: ${err.message}`)
 	}
 }
 
@@ -311,7 +268,8 @@ function ListData () {
 	const t = new Table()
 
 	data.forEach(d => {
-		t.cell('Twitter Id', d.id)
+		const omitPrefix = `${(d.ignore && d.ignore === true) ? '** ' : ''}`
+		t.cell('Twitter Id (** For Omitted)', omitPrefix + d.id)
 		t.cell('Create Date', d.createDate)
 		t.cell('Start Date', d.startDate)
 		t.newRow()
@@ -320,39 +278,42 @@ function ListData () {
 	console.log(t.toString())
 }
 
-function UpdateData (isUpdate, updateData) {
-	if (isUpdate === 'NULL') {
-		console.log('Missing update param.')
-		console.log('Wrong Format. Abort.')
-		return
-	}
-
+function UpdateData (updateData) {
+	
 	if (updateData === 'NULL') {
 		console.log(`updateData = ${JSON.stringify(updateData)}`)
 		console.log('Wrong Format. Abort.')
 		return
 	}
 
-	if (isUpdate) {
-		for (const user of data) {
-			if (user.id === updateData.id) {
-				if (updateData.createDate !== 'NULL') {
-					console.log(`Update ${user.id} createDate from ${user.createDate} to ${updateData.createDate}`)
-					user.createDate = updateData.createDate
-				}
-				if (updateData.startDate !== 'NULL') {
-					console.log(`Update ${user.id} startDate from ${user.startDate} to ${updateData.startDate}`)
-					user.startDate = updateData.startDate
-				}
-				break
+	let isUpdate = false
+
+	for (const user of data) {
+		if (user.id === updateData.id) {
+			if (updateData.createDate !== 'NULL') {
+				console.log(`Update ${user.id} createDate from ${user.createDate} to ${updateData.createDate}`)
+				user.createDate = updateData.createDate
 			}
+			if (updateData.startDate !== 'NULL') {
+				console.log(`Update ${user.id} startDate from ${user.startDate} to ${updateData.startDate}`)
+				user.startDate = updateData.startDate
+			}
+			isUpdate = true
+			break
 		}
-	} else {
-		if (updateData.createDate === 'NULL' || updateData.startDate === 'NULL') {
+	}
+
+	if (isUpdate === false) {
+		if (updateData.createDate === 'NULL') {
 			console.log(`updateData = ${JSON.stringify(updateData)}`)
-			console.log('Wrong Format. Abort.')
+			console.log('Wrong Format: createDate must be assigned.')
+			console.log('Abort.')
 			return
 		} else {
+			if (updateData.startDate === 'NULL') {
+				console.log('Detect no assigned startDate, use createDate as default value')
+				updateData.startDate = updateData.createDate
+			}
 			console.log(`Add ${updateData.id}, startDate = ${updateData.startDate}, createDate = ${updateData.createDate}`)
 			data.push(updateData)
 		}
@@ -371,6 +332,11 @@ if (require.main === module) {
 		let rawData = fs.readFileSync(dataPath)
 		try {
 			data = JSON.parse(rawData)
+
+			if (mode != 'list') {
+				data = data.filter(x => typeof x.ignore === 'undefined' && x.ignore != true)
+			}
+
 		} catch (err) {
 			console.log(`Failed Parsing ${dataPath}, error = ${err}}`)
 			process.exit()
@@ -425,16 +391,14 @@ if (require.main === module) {
 		}
 		Clear()
 	} else if (mode === 'data') {
-		const isUpdate = args.update === 'true' || false
 		console.log('============================================')
-		console.log(`                ${isUpdate ? 'Update DATA' : 'Add     DATA'}`)
+		console.log('                Update DATA')
 		console.log('============================================')
 		const updateId = args.id || 'NULL'
 		const updateCreateDate = args.createDate || 'NULL'
-		const updateStartDate = args.startDate || (isUpdate ? 'NULL' : updateCreateDate) // default set equal to updateCreateDate when mode = add
-
+		const updateStartDate = args.startDate || 'NULL'
 		const updateData = { id: updateId, createDate: updateCreateDate, startDate: updateStartDate }
-		UpdateData(isUpdate, updateData)
+		UpdateData(updateData)
 	} else if (mode === 'list') {
 		if (isVerbose) {
 			console.log('============================================')
