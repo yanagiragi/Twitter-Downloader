@@ -38,10 +38,17 @@ class TwitterCrawler {
 	}
 
 	async GetGuestID () {
-		const uri = `https://twitter.com/${this.account}}`
+
+		if (this.guestId !== '')
+			return this.guestId
+
+		const uri = `https://api.twitter.com/1.1/guest/activate.json`
 		const resp = await fetch(uri, {
+			method: 'POST',
 			headers : {
-				"User-Agent": UserAgent
+				//'User-Agent': UserAgent,
+				//'content-type': 'application/x-www-form-urlencoded',
+				'authorization': this.GetAuthorization(),
 			}
 		})
 		const data = await resp.text()
@@ -51,10 +58,7 @@ class TwitterCrawler {
 		}
 		
 		try {
-			const gtRegex = /"gt=([0-9]*);/
-			const match = data.match(gtRegex)
-			const guestId = match[1]
-			return guestId
+			return JSON.parse(data).guest_token
 		} catch (err) {
 			throw new Error(`GetGuestID() of ${this.account} Error: ${err}`)
 		}
@@ -69,7 +73,6 @@ class TwitterCrawler {
 				'Accept': '*/*',
 				'content-type': 'application/json',
 				'authorization': this.GetAuthorization(),
-				//'x-guest-token': this.guestId
 				'x-guest-token': this.GetGuestID()
 			}
 		}
@@ -107,8 +110,6 @@ class TwitterCrawler {
 				'Pragma': 'no-cache',
 				'Cache-Control': 'no-cache',
 				'TE': 'Trailers'
-				// -H 'Cookie: personalization_id="v1_aX8enfuWdg+IHJwA7wJxzg=="; guest_id=v1%3A159112143699875582; gt=1267881318202789888; ct0=24e4afcba440e72020f828c5ce2482a9' -H
-				// `v1%3A${guestId}` = v1:159120449334022098
 			}
 		}
 
@@ -133,8 +134,7 @@ class TwitterCrawler {
 		return data
 	}
 
-	async Preprocess() {
-		
+	async Preprocess() {		
 		// Get guestId (x-guest-token)
 		if (this.guestId === '') {
 			this.guestId = await this.GetGuestID()
@@ -142,7 +142,7 @@ class TwitterCrawler {
 
 		// Get realId of this.account
 		if (this.restId === '') {
-			this.restId = await this.GetRestID(this.guestId, this.account)
+			this.restId = await this.GetRestID()
 		}
 	}
 
@@ -177,14 +177,17 @@ class TwitterCrawler {
 			}
 			return [tweetContainer, retweetContainer]
 		} catch (err) {
-			console.log(err)
-			return [[], []]
+			throw err
 		}
 	}
 
 	async CrawlFromMainPage (depth = 0) {
 
 		await this.Preprocess()
+
+		if (this.restId === '') {
+			throw new Error('Error When Parsing Rest ID')
+		}
 
 		const data = await this.FetchFromMainPage(depth)
 
@@ -223,8 +226,12 @@ class TwitterCrawler {
 	}
 	
 	async CrawlFromAdvancedSearch(startDate, endDate, countPerRequest = 1000) {
-		
+
 		await this.Preprocess()
+
+		if (this.restId === '') {
+			throw new Error('Error When Parsing Rest ID')
+		}
 
 		const uriBase = 'https://twitter.com/i/api/2/search/adaptive.json?include_profile_interstitial_type=1&include_blocking=1&include_blocked_by=1&include_followed_by=1&include_want_retweets=1&include_mute_edge=1&include_can_dm=1&include_can_media_tag=1&skip_status=1&cards_platform=Web-12&include_cards=1&include_ext_alt_text=true&include_quote_count=true&include_reply_count=1&tweet_mode=extended&include_entities=true&include_user_entities=true&include_ext_media_color=true&include_ext_media_availability=true&send_error_codes=true&simple_quoted_tweet=true&query_source=typed_query&pc=1&spelling_corrections=1&ext=mediaStats%2ChighlightedLabel'
 
@@ -251,9 +258,14 @@ class TwitterCrawler {
 				'TE': 'Trailers'
 			}
 		}
-
+vim
 		const resp = await fetch(uri, options)
-		const data = await resp.json()
+		const raw = await resp.text()
+		const data = JSON.parse(raw)
+
+		if (data.errors && data.errors[0].message === 'Rate limit exceeded') {
+			throw new Error('Rate limit exceeded')
+		}
 
 		const [ rawTweetResults, rawRetweetResults ] = this.Parse(data)
 		
@@ -264,7 +276,7 @@ class TwitterCrawler {
 		}
 		const results = rawTweetResults.filter(x => isNotDuplicate(x, this.fetchResults))
 		const retweetResults = rawRetweetResults.filter(x => isNotDuplicate(x, this.fetchRetweets))
-
+		
 		return [ results, retweetResults ]
 	}
 
