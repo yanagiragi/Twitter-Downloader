@@ -2,7 +2,7 @@ const fetch = require('node-fetch')
 const cheerio = require('cheerio')
 const { string } = require('easy-table')
 
-const UserAgent = "User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:84.0) Gecko/20100101 Firefox/84.0"
+const UserAgent = 'User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:84.0) Gecko/20100101 Firefox/84.0'
 
 class TwitterTweet {
 	constructor (tweetId, photos, timestamp, content) {
@@ -38,17 +38,15 @@ class TwitterCrawler {
 	}
 
 	async GetGuestID () {
+		if (this.guestId !== '') { return this.guestId }
 
-		if (this.guestId !== '')
-			return this.guestId
-
-		const uri = `https://api.twitter.com/1.1/guest/activate.json`
+		const uri = 'https://api.twitter.com/1.1/guest/activate.json'
 		const resp = await fetch(uri, {
 			method: 'POST',
-			headers : {
-				//'User-Agent': UserAgent,
-				//'content-type': 'application/x-www-form-urlencoded',
-				'authorization': this.GetAuthorization(),
+			headers: {
+				// 'User-Agent': UserAgent,
+				// 'content-type': 'application/x-www-form-urlencoded',
+				authorization: this.GetAuthorization()
 			}
 		})
 		const data = await resp.text()
@@ -56,13 +54,12 @@ class TwitterCrawler {
 		if (this.isDebug) {
 			console.log(data)
 		}
-		
+
 		try {
 			return JSON.parse(data).guest_token
 		} catch (err) {
 			throw new Error(`GetGuestID() of ${this.account} Error: ${err}`)
 		}
-		
 	}
 
 	async GetRestID () {
@@ -70,9 +67,9 @@ class TwitterCrawler {
 		const options = {
 			headers: {
 				'User-Agent': UserAgent,
-				'Accept': '*/*',
+				Accept: '*/*',
 				'content-type': 'application/json',
-				'authorization': this.GetAuthorization(),
+				authorization: this.GetAuthorization(),
 				'x-guest-token': this.GetGuestID()
 			}
 		}
@@ -80,11 +77,11 @@ class TwitterCrawler {
 
 		try {
 			const data = await resp.json()
-			const restId = data.data.user['rest_id']
+			const restId = data.data.user.rest_id
 			return restId
 		} catch (err) {
 			throw new Error(`GetRestID() of ${this.account} Error: ${err}`)
-		}		
+		}
 	}
 
 	async FetchFromMainPage (position) {
@@ -95,21 +92,21 @@ class TwitterCrawler {
 		const options = {
 			headers: {
 				'User-Agent': UserAgent,
-				'Accept': '*/*',
+				Accept: '*/*',
 				'content-type': 'application/json',
-				'authorization': this.GetAuthorization(),
+				authorization: this.GetAuthorization(),
 				'x-guest-token': this.guestId,
 				'Accept-Language': 'zh-TW,zh;q=0.8,en-US;q=0.5,en;q=0.3',
 				'x-twitter-client-language': 'zh-tw',
 				'x-twitter-active-user': 'yes',
 				'x-csrf-token': '24e4afcba440e72020f828c5ce2482a9',
-				'Origin': 'https://twitter.com',
-				'DNT': 1,
-				'Connection': 'keep-alive',
-				'Referer': 'https://twitter.com/',
-				'Pragma': 'no-cache',
+				Origin: 'https://twitter.com',
+				DNT: 1,
+				Connection: 'keep-alive',
+				Referer: 'https://twitter.com/',
+				Pragma: 'no-cache',
 				'Cache-Control': 'no-cache',
-				'TE': 'Trailers'
+				TE: 'Trailers'
 			}
 		}
 
@@ -122,7 +119,7 @@ class TwitterCrawler {
 
 		const filterBottomCursor = x => x.content && x.content.operation && x.content.operation.cursor && x.content.operation.cursor.cursorType && x.content.operation.cursor.cursorType === 'Bottom'
 
-		if (typeof data.timeline == 'undefined') {
+		if (typeof data.timeline === 'undefined') {
 			console.log(`Error When Request ${uri}, probably due to rate limit`)
 			console.log(data)
 			console.log(this.guestId)
@@ -134,7 +131,7 @@ class TwitterCrawler {
 		return data
 	}
 
-	async Preprocess() {		
+	async Preprocess () {
 		// Get guestId (x-guest-token)
 		if (this.guestId === '') {
 			this.guestId = await this.GetGuestID()
@@ -147,42 +144,37 @@ class TwitterCrawler {
 	}
 
 	Parse (data) {
-		try {
-			const retweetContainer = []
-			const tweetContainer = []
-			for (const tweetEntry of Object.entries(data.globalObjects.tweets)) {
-				const tweetId = tweetEntry[0]
-				const tweet = tweetEntry[1]
+		const retweetContainer = []
+		const tweetContainer = []
+		for (const tweetEntry of Object.entries(data.globalObjects.tweets)) {
+			const tweetId = tweetEntry[0]
+			const tweet = tweetEntry[1]
 
-				const content = tweet['full_text']
-				const timestamp = tweet['created_at'] // e.g. Sun May 31 02:40:23 +0000 2020
-				const photos = [] // container for image urls
-				const entryMedia = tweet.entities.media
-				if (entryMedia) {
-					for (const media of entryMedia) {
-						const url = `${media.media_url}:orig`
+			const content = tweet.full_text
+			const timestamp = tweet.created_at // e.g. Sun May 31 02:40:23 +0000 2020
+			const photos = [] // container for image urls
+			const entryMedia = tweet.entities.media
+			if (entryMedia) {
+				for (const media of entryMedia) {
+					const url = `${media.media_url}:orig`
 
-						// only save image instead of thumbnail of the video
-						if (url.includes('ext_tw_video_thumb') === false) {
-							photos.push(url)
-						}
+					// only save image instead of thumbnail of the video
+					if (url.includes('ext_tw_video_thumb') === false) {
+						photos.push(url)
 					}
 				}
-
-				if (tweet.retweeted_status_id_str !== undefined || tweet.user_id_str !== this.restId) {
-					retweetContainer.push(new TwitterTweet(tweetId, photos, timestamp, content))
-				} else {
-					tweetContainer.push(new TwitterTweet(tweetId, photos, timestamp, content))
-				}
 			}
-			return [tweetContainer, retweetContainer]
-		} catch (err) {
-			throw err
+
+			if (tweet.retweeted_status_id_str !== undefined || tweet.user_id_str !== this.restId) {
+				retweetContainer.push(new TwitterTweet(tweetId, photos, timestamp, content))
+			} else {
+				tweetContainer.push(new TwitterTweet(tweetId, photos, timestamp, content))
+			}
 		}
+		return [tweetContainer, retweetContainer]
 	}
 
 	async CrawlFromMainPage (depth = 0) {
-
 		await this.Preprocess()
 
 		if (this.restId === '') {
@@ -191,7 +183,7 @@ class TwitterCrawler {
 
 		const data = await this.FetchFromMainPage(depth)
 
-		const [ rawTweetResults, rawRetweetResults ] = this.Parse(data)
+		const [rawTweetResults, rawRetweetResults] = this.Parse(data)
 
 		if (this.debug) {
 			console.log(JSON.stringify(data))
@@ -211,7 +203,7 @@ class TwitterCrawler {
 
 		// pass params to callback provided from cli.js
 		// the purpose is for caching the results for early breaking the recursively crawls
-		const shouldBreak = this.EarlyBreak(this, [ results, retweetResults ])
+		const shouldBreak = this.EarlyBreak(this, [results, retweetResults])
 
 		// eslint-disable-next-line no-trailing-spaces
 		if (this.verbose) { 
@@ -221,12 +213,11 @@ class TwitterCrawler {
 		if (shouldBreak === false && depth <= this.maxDepth) {
 			return this.CrawlFromMainPage(depth + 1)
 		} else {
-			return [ this.fetchResults, this.fetchRetweets ]
+			return [this.fetchResults, this.fetchRetweets]
 		}
 	}
-	
-	async CrawlFromAdvancedSearch(startDate, endDate, countPerRequest = 1000) {
 
+	async CrawlFromAdvancedSearch (startDate, endDate, countPerRequest = 1000) {
 		await this.Preprocess()
 
 		if (this.restId === '') {
@@ -241,24 +232,24 @@ class TwitterCrawler {
 		const options = {
 			headers: {
 				'User-Agent': UserAgent,
-				'Accept': '*/*',
+				Accept: '*/*',
 				'content-type': 'application/json',
-				'authorization': this.GetAuthorization(),
+				authorization: this.GetAuthorization(),
 				'x-guest-token': this.guestId,
 				'Accept-Language': 'zh-TW,zh;q=0.8,en-US;q=0.5,en;q=0.3',
 				'x-twitter-client-language': 'zh-tw',
 				'x-twitter-active-user': 'yes',
 				'x-csrf-token': '24e4afcba440e72020f828c5ce2482a9',
-				'Origin': 'https://twitter.com',
-				'DNT': 1,
-				'Connection': 'keep-alive',
-				'Referer': 'https://twitter.com/',
-				'Pragma': 'no-cache',
+				Origin: 'https://twitter.com',
+				DNT: 1,
+				Connection: 'keep-alive',
+				Referer: 'https://twitter.com/',
+				Pragma: 'no-cache',
 				'Cache-Control': 'no-cache',
-				'TE': 'Trailers'
+				TE: 'Trailers'
 			}
 		}
-vim
+
 		const resp = await fetch(uri, options)
 		const raw = await resp.text()
 		const data = JSON.parse(raw)
@@ -267,8 +258,8 @@ vim
 			throw new Error('Rate limit exceeded')
 		}
 
-		const [ rawTweetResults, rawRetweetResults ] = this.Parse(data)
-		
+		const [rawTweetResults, rawRetweetResults] = this.Parse(data)
+
 		// Sometimes twitter returns duplicated results from different api calls
 		// To deal with this, we filter the raw_results and leave only new TwitterTweets
 		const isNotDuplicate = (ele, checkContainer) => {
@@ -276,17 +267,16 @@ vim
 		}
 		const results = rawTweetResults.filter(x => isNotDuplicate(x, this.fetchResults))
 		const retweetResults = rawRetweetResults.filter(x => isNotDuplicate(x, this.fetchRetweets))
-		
-		return [ results, retweetResults ]
-	}
 
+		return [results, retweetResults]
+	}
 }
 
 // Tests
 if (require.main === module) {
-	let account = 'HitenKei'
+	const account = 'HitenKei'
 	const crawler = new TwitterCrawler(account, true, () => false, 1)
-	
+
 	crawler.CrawlFromMainPage().then(result => {
 		console.log('result = ', result)
 		crawler.CrawlFromAdvancedSearch('2020-02-08', '2020-03-01').then(result => {

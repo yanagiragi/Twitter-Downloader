@@ -27,26 +27,24 @@ const remoteStorageCache = UpdateRemoteStorageCache()
 var data = []
 var containers = {}
 
-function UpdateRemoteStorageCache() {
-	if (useRemoteStorage !== 'true'){
+function UpdateRemoteStorageCache () {
+	if (useRemoteStorage !== 'true') {
 		return []
 	}
 
 	console.log('Updating Remote Storage Cache ...')
 	const res = fs.readdirSync(StoragePath)
-		.filter(x => x.includes('.json') == false) // filter container.json and data.json
+		.filter(x => x.includes('.json') === false) // filter container.json and data.json
 		.map(x => fs.readdirSync(path.join(StoragePath, x)).map(ele => path.join(StoragePath, x, ele)))
 		.flat()
-		console.log('Updating Remote Storage Cache Done, length = ' + res.length)
+	console.log('Updating Remote Storage Cache Done, length = ' + res.length)
 	return res
 }
 
-async function DownloadImage(url, filename) {
-
+async function DownloadImage (url, filename) {
 	if (useRemoteStorage === 'true' && remoteStorageCache.includes(filename)) {
 		return false
-	}
-	else if (useRemoteStorage !== 'true' && fs.existsSync(filename)) {
+	} else if (useRemoteStorage !== 'true' && fs.existsSync(filename)) {
 		return false
 	}
 
@@ -70,7 +68,7 @@ function EarlyBreak (instance, resultContainers) {
 		// return false
 	}
 
-	let duplicatedCount = tweetContainer.reduce((acc, x) => {
+	const duplicatedCount = tweetContainer.reduce((acc, x) => {
 		const isExist = containers[instance.account].filter(ele => ele.tweetId === x.tweetId).length !== 0
 		if (isExist) { return acc + 1 }
 		return acc
@@ -80,7 +78,6 @@ function EarlyBreak (instance, resultContainers) {
 }
 
 function Save (UpdateDate = false) {
-
 	if (useRemoteStorage === 'true') {
 		console.log('Saving ...')
 	}
@@ -91,8 +88,8 @@ function Save (UpdateDate = false) {
 		})
 	}
 
-	for (let key in containers) {
-		let ele = containers[key]
+	for (const key in containers) {
+		const ele = containers[key]
 		ele.map(x => {
 			x.timestamp = FormatTwitterTimestamp(x.timestamp)
 		})
@@ -108,35 +105,31 @@ function Save (UpdateDate = false) {
 }
 
 async function UpdateUserSearchInfo (user) {
-	let account = user.id
+	const account = user.id
 	let startDate = user.startDate
 
-	if(containers[account] == undefined){
+	if (containers[account] === undefined) {
 		containers[account] = []
 	}
 
-	if (startDate == currentDate) {
-		if(isVerbose)
-			console.log(`${account} Already up to date. Skip.`)
+	if (startDate === currentDate) {
+		if (isVerbose) { console.log(`${account} Already up to date. Skip.`) }
 		return
-	}
-	else {
+	} else {
 		let updateCount = 1
 		const crawler = new TwitterCrawler(account, isVerbose)
-		while (FormatDate(startDate) < FormatDate(currentDate)){
-			let nextDate = IncreaseDate(startDate, daySkip)
-			if(isVerbose)
-				console.log(`Fetching ${account}, Date = ${startDate} ~ ${nextDate}`)
+		while (FormatDate(startDate) < FormatDate(currentDate)) {
+			const nextDate = IncreaseDate(startDate, daySkip)
+			if (isVerbose) { console.log(`Fetching ${account}, Date = ${startDate} ~ ${nextDate}`) }
 			try {
-				let crawlResult = await crawler.CrawlFromAdvancedSearch(startDate, nextDate)
-				
+				const crawlResult = await crawler.CrawlFromAdvancedSearch(startDate, nextDate)
+
 				const tweetResult = crawlResult[0]
 				tweetResult.map(x => {
-					const isExist = containers[account].filter(ele => ele.tweetId == x.tweetId).length != 0
-					if (!isExist){
+					const isExist = containers[account].filter(ele => ele.tweetId === x.tweetId).length !== 0
+					if (!isExist) {
 						containers[account].push(x)
-						if(isVerbose)
-							console.log(`update ${x.tweetId} for ${user.id}`)
+						if (isVerbose) { console.log(`update ${x.tweetId} for ${user.id}`) }
 						// update with double weight when new tweet is found
 						updateCount += 2
 					}
@@ -148,7 +141,7 @@ async function UpdateUserSearchInfo (user) {
 				// update anyway, force no data stills increase updateCount
 				updateCount += 1
 
-				if(updateCount > saveDuration){
+				if (updateCount > saveDuration) {
 					user.startDate = startDate
 					fs.writeFileSync(dataPath, JSON.stringify(data, null, 4))
 					fs.writeFileSync(containerPath, JSON.stringify(containers, null, 4))
@@ -157,7 +150,6 @@ async function UpdateUserSearchInfo (user) {
 				}
 
 				startDate = nextDate
-
 			} catch (err) {
 				console.log(`Error occurs on ${account}: ${err.message}`)
 				break
@@ -171,24 +163,23 @@ async function UpdateUserSearchInfo (user) {
 	user.startDate = startDate
 }
 
-async function UpdateSearchInfoSync() {
+async function UpdateSearchInfoSync () {
 	for (const user of data) {
-        await UpdateUserSearchInfo(user)
-    }
-    Save()
+		await UpdateUserSearchInfo(user)
+	}
+	Save()
 }
 
-function UpdateSearchInfo() {
+function UpdateSearchInfo () {
 	const tasks = data.map(user => UpdateUserSearchInfo(user))
-    Promise.all(tasks).then(res => {
-        Save()
-    })
+	Promise.all(tasks).then(res => {
+		Save()
+	})
 }
 
 async function UpdateUserMainInfo (user) {
-	
-	let account = user.id
-	let startDate = user.startDate
+	const account = user.id
+	const startDate = user.startDate
 
 	if (containers[account] === undefined) {
 		containers[account] = []
@@ -200,7 +191,7 @@ async function UpdateUserMainInfo (user) {
 	const breakHandler = noEarlyBreak === 'true' ? NoEarlyBreak : EarlyBreak
 
 	try {
-		let [ crawlResult, crawlRetweets ] = await new TwitterCrawler(account, isVerbose, breakHandler).CrawlFromMainPage()
+		const [crawlResult, crawlRetweets] = await new TwitterCrawler(account, isVerbose, breakHandler).CrawlFromMainPage()
 
 		crawlResult.map(x => {
 			const isExist = containers[account].filter(ele => ele.tweetId === x.tweetId).length !== 0
@@ -231,8 +222,8 @@ function UpdateMainInfo () {
 	Promise.all(
 		data.map(async user => UpdateUserMainInfo(user))
 	)
-	.catch(err => console.error(err))
-	.finally(() => Save())
+		.catch(err => console.error(err))
+		.finally(() => Save())
 }
 
 function UpdateImage () {
@@ -247,7 +238,7 @@ function UpdateImage () {
 			img.map(async x => {
 				// remove :orig when saving
 				const filename = path.join(StoragePath, user.id, x.replace(':orig', '').substring(x.lastIndexOf('/') + 1))
-				let isDownload = await DownloadImage(x, filename)
+				const isDownload = await DownloadImage(x, filename)
 				if (isDownload && isVerbose) { console.log(`Successfully Download ${x} as ${filename}`) }
 			})
 		})
@@ -279,7 +270,6 @@ function ListData () {
 }
 
 function UpdateData (updateData) {
-	
 	if (updateData === 'NULL') {
 		console.log(`updateData = ${JSON.stringify(updateData)}`)
 		console.log('Wrong Format. Abort.')
@@ -329,14 +319,13 @@ if (require.main === module) {
 		console.log(`${dataPath} does not exists. Abort.`)
 		process.exit()
 	} else {
-		let rawData = fs.readFileSync(dataPath)
+		const rawData = fs.readFileSync(dataPath)
 		try {
 			data = JSON.parse(rawData)
 
-			if (mode != 'list') {
-				data = data.filter(x => typeof x.ignore === 'undefined' && x.ignore != true)
+			if (mode !== 'list') {
+				data = data.filter(x => typeof x.ignore === 'undefined' && x.ignore !== true)
 			}
-
 		} catch (err) {
 			console.log(`Failed Parsing ${dataPath}, error = ${err}}`)
 			process.exit()
@@ -344,7 +333,7 @@ if (require.main === module) {
 	}
 
 	if (fs.existsSync(containerPath)) {
-		let rawContainer = fs.readFileSync(containerPath)
+		const rawContainer = fs.readFileSync(containerPath)
 		try {
 			containers = JSON.parse(rawContainer)
 		} catch (err) {
