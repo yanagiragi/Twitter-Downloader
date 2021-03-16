@@ -3,6 +3,7 @@ const path = require('path')
 const fs = require('fs-extra')
 const minimist = require('minimist')
 const Table = require('easy-table')
+const pMap = require('p-map')
 const { TwitterCrawler } = require('..')
 const { DateFormat, FormatDate, IncreaseDate, FetchImage, FormatTwitterTimestamp } = require('./utils')
 
@@ -42,13 +43,9 @@ function UpdateRemoteStorageCache () {
 }
 
 async function DownloadImage (url, filename) {
-	if (useRemoteStorage === 'true' && remoteStorageCache.includes(filename)) {
-		return false
-	} else if (useRemoteStorage !== 'true' && fs.existsSync(filename)) {
-		return false
-	}
-
-	return FetchImage(url, filename)
+	const result = await FetchImage(url, filename)
+	if (result && isVerbose) { console.log(`Successfully Download ${url} as ${filename}`) }
+	return
 }
 
 function NoEarlyBreak (instance, resultContainers) {
@@ -226,23 +223,39 @@ function UpdateMainInfo () {
 		.finally(() => Save())
 }
 
-function UpdateImage () {
-	return Promise.all(
-		data.map(async user => {
-			fs.ensureDirSync(`${StoragePath}/${user.id}`)
+async function UpdateImage () {	
+	const tasks = []
+	for(let i = 0; i < data.length; ++i) {
+		const user = data[i]
+		
+		fs.ensureDirSync(`${StoragePath}/${user.id}`)
 
-			const img = containers[user.id].reduce((acc, ele) => {
-				if (ele.hasPhoto) { return acc.concat([...ele.photos]) } else { return acc }
-			}, [])
+		const imgs = containers[user.id].reduce((acc, ele) => {
+			if (ele.hasPhoto) { return acc.concat([...ele.photos]) } else { return acc }
+		}, [])
 
-			img.map(async x => {
-				// remove :orig when saving
-				const filename = path.join(StoragePath, user.id, x.replace(':orig', '').substring(x.lastIndexOf('/') + 1))
-				const isDownload = await DownloadImage(x, filename)
-				if (isDownload && isVerbose) { console.log(`Successfully Download ${x} as ${filename}`) }
-			})
-		})
-	)
+		for(let j = 0; j < imgs.length; ++j) {
+			const img = imgs[j]
+
+			// remove :orig when saving
+			const filename = path.join(StoragePath, user.id, img.replace(':orig', '').substring(img.lastIndexOf('/') + 1))
+			
+			if (useRemoteStorage === 'true' && remoteStorageCache.includes(filename)) {
+				continue
+			} else if (useRemoteStorage !== 'true' && fs.existsSync(filename)) {
+				continue
+			}
+		
+			tasks.push({ index: tasks.length, img: img, filename: filename })
+		}
+	}
+
+	return pMap(tasks, async task => {
+		if (isVerbose)
+			console.log(`Running ${task.index}/${tasks.length}: ${task.img}`)
+		const result = await DownloadImage(task.img, task.filename)
+		return result
+	}, { concurrency: 10 })
 }
 
 function Clear () {
@@ -350,9 +363,9 @@ if (require.main === module) {
 			console.log('Deep = ', noEarlyBreak)
 		}
 		if (sync === 'true') {
-			UpdateMainInfoSync()
+			return UpdateMainInfoSync()
 		} else {
-			UpdateMainInfo()
+			return UpdateMainInfo()
 		}
 	} else if (mode === 'searchInfo') {
 		if (isVerbose) {
@@ -371,14 +384,14 @@ if (require.main === module) {
 			console.log('                UPDATE IMAGE')
 			console.log('============================================')
 		}
-		UpdateImage()
+		return UpdateImage().then(result => console.log(`Done/Failed: ${result.filter(Boolean).length}/${result.length - result.filter(Boolean).length}`))
 	} else if (mode === 'clear') {
 		if (isVerbose) {
 			console.log('============================================')
 			console.log('                CLEAR DATA')
 			console.log('============================================')
 		}
-		Clear()
+		return Clear()
 	} else if (mode === 'data') {
 		console.log('============================================')
 		console.log('                Update DATA')
@@ -387,14 +400,14 @@ if (require.main === module) {
 		const updateCreateDate = args.createDate || 'NULL'
 		const updateStartDate = args.startDate || 'NULL'
 		const updateData = { id: updateId, createDate: updateCreateDate, startDate: updateStartDate }
-		UpdateData(updateData)
+		return UpdateData(updateData)
 	} else if (mode === 'list') {
 		if (isVerbose) {
 			console.log('============================================')
 			console.log('                LIST DATA')
 			console.log('============================================')
 		}
-		ListData()
+		return ListData()
 	} else {
 		console.log('Error When Parsing Arguments.')
 		console.log('Abort.')
