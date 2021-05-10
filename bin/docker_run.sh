@@ -6,7 +6,7 @@ DOCKER_IMAGE_TAG=twitterdl
 MODE=$1
 
 # use rootless mode
-~/bin/docker run -it \
+~/bin/docker run \
 	-v $(pwd)/data:/$REPO_ROOT/bin/data \
 	-v $(pwd)/Storage:$REPO_ROOT/bin/Storage \
 	$DOCKER_IMAGE_TAG \
