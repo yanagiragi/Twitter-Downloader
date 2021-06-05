@@ -22,11 +22,13 @@ const isVerbose = (process.env.NODE_ENV !== 'production')
 const StoragePath = (useRemoteStorage === 'true' ? path.join(__dirname, '/Storage_Remote') : path.join(__dirname, '/Storage'))
 const dataPath = (useRemoteStorage === 'true' ? path.join(__dirname, '/Storage_Remote', 'data.json') : path.join(__dirname, 'data', 'data.json'))
 const containerPath = (useRemoteStorage === 'true' ? path.join(__dirname, '/Storage_Remote', 'container.json') : path.join(__dirname, 'data', 'container.json'))
+const skipContainerPath = (useRemoteStorage === 'true' ? path.join(__dirname, '/Storage_Remote', 'skip.json') : path.join(__dirname, 'data', 'skip.json'))
 const currentDate = DateFormat(new Date())
 const remoteStorageCache = UpdateRemoteStorageCache()
 
 var data = []
 var containers = {}
+var skipUrls = []
 
 function UpdateRemoteStorageCache () {
 	if (useRemoteStorage !== 'true') {
@@ -245,8 +247,9 @@ async function UpdateImage () {
 			} else if (useRemoteStorage !== 'true' && fs.existsSync(filename)) {
 				continue
 			}
-		
-			tasks.push({ index: tasks.length, img: img, filename: filename })
+
+			if (skipUrls.includes(img) == false)
+				tasks.push({ index: tasks.length, img: img, filename: filename })
 		}
 	}
 
@@ -340,7 +343,7 @@ if (require.main === module) {
 				data = data.filter(x => typeof x.ignore === 'undefined' && x.ignore !== true)
 			}
 		} catch (err) {
-			console.log(`Failed Parsing ${dataPath}, error = ${err}}`)
+			console.log(`Failed Parsing ${dataPath}, error = ${err}`)
 			process.exit()
 		}
 	}
@@ -350,7 +353,17 @@ if (require.main === module) {
 		try {
 			containers = JSON.parse(rawContainer)
 		} catch (err) {
-			console.log(`Failed Parsing ${containerPath}, error = ${err}}`)
+			console.log(`Failed Parsing ${containerPath}, error = ${err}`)
+			process.exit()
+		}
+	}
+	
+	if (fs.existsSync(skipContainerPath)) {
+		const rawContainer = fs.readFileSync(skipContainerPath)
+		try {
+			skipUrls = JSON.parse(rawContainer)
+		} catch (err) {
+			console.log(`Failed Parsing ${skipContainerPath}, error = ${err}`)
 			process.exit()
 		}
 	}
