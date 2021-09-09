@@ -397,7 +397,12 @@ if (require.main === module) {
 			console.log('                UPDATE IMAGE')
 			console.log('============================================')
 		}
-		return UpdateImage().then(result => console.log(`Done/Failed: ${result.filter(Boolean).length}/${result.length - result.filter(Boolean).length}`))
+		return UpdateImage().then(result => {
+			var doneCount = result.filter(Boolean).length
+			if (doneCount > 0) {
+				console.log(`Done/Failed: ${doneCount}/${result.length - doneCount}`)
+			}
+		})
 	} else if (mode === 'clear') {
 		if (isVerbose) {
 			console.log('============================================')
