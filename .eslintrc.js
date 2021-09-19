@@ -1,16 +1,13 @@
 module.exports = {
 	"env": {
-		"browser": true,
+		"node": true,
 		"commonjs": true,
-		"es6": true,
-		"node": true
+		"es2021": true
 	},
-    "parserOptions": {
-        "ecmaVersion": 8,
-        "sourceType": "module"
-    },
-	"extends": "standard",
-	"plugins": [],
+	"extends": "eslint:recommended",
+	"parserOptions": {
+		"ecmaVersion": 12
+	},
 	"rules": {
 		"indent": ["error", "tab", {"SwitchCase": 1}],
 		"no-tabs": 0,
