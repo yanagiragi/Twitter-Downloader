@@ -68,6 +68,8 @@ bin/Storage_legacy/*
 bin/data/data.json
 bin/data/container.json
 bin/data/skip.json
+bin/data/corrupted.json
+bin/data/processed.json
 
 bin/Thumb/*
 bin/container.json

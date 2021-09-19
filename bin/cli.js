@@ -16,17 +16,21 @@ const mode = args.mode || 'info'
 const sync = args.sync || 'false'
 const noEarlyBreak = args.deep || 'false'
 const useRemoteStorage = args.useRemoteStorage || 'false'
+const useProcessedJson = args.useProcessJson || 'true'
 
 const isVerbose = (process.env.NODE_ENV !== 'production')
 
 const StoragePath = (useRemoteStorage === 'true' ? path.join(__dirname, '/Storage_Remote') : path.join(__dirname, '/Storage'))
 const dataPath = (useRemoteStorage === 'true' ? path.join(__dirname, '/Storage_Remote', 'data.json') : path.join(__dirname, 'data', 'data.json'))
+const processedPath = (useRemoteStorage === 'true' ? path.join(__dirname, '/Storage_Remote', 'processed.json') : path.join(__dirname, 'data', 'processed.json'))
+const corruptedPath = (useRemoteStorage === 'true' ? path.join(__dirname, '/Storage_Remote', 'corrupted.json') : path.join(__dirname, 'data', 'corrupted.json'))
 const containerPath = (useRemoteStorage === 'true' ? path.join(__dirname, '/Storage_Remote', 'container.json') : path.join(__dirname, 'data', 'container.json'))
 const skipContainerPath = (useRemoteStorage === 'true' ? path.join(__dirname, '/Storage_Remote', 'skip.json') : path.join(__dirname, 'data', 'skip.json'))
 const currentDate = DateFormat(new Date())
 const remoteStorageCache = UpdateRemoteStorageCache()
 
 var data = []
+var processed = []
 var containers = {}
 var skipUrls = []
 
@@ -44,10 +48,14 @@ function UpdateRemoteStorageCache () {
 	return res
 }
 
-async function DownloadImage (url, filename) {
+async function DownloadImage (url, filename, key) {
 	const result = await FetchImage(url, filename)
-	if (result && isVerbose) { console.log(`Successfully Download ${url} as ${filename}`) }
-	return
+	if (result) {
+		processed.push(key)
+		if (isVerbose)
+			console.log(`Successfully Download ${url} as ${filename}`) 
+	}
+	return result
 }
 
 function NoEarlyBreak (instance, resultContainers) {
@@ -97,6 +105,10 @@ function Save (UpdateDate = false) {
 
 	fs.writeFileSync(dataPath, JSON.stringify(data, null, 4))
 	fs.writeFileSync(containerPath, JSON.stringify(containers, null, 4))
+	fs.writeFileSync(processedPath, JSON.stringify(processed, null, 4))
+	if (mode === 'image') {
+		fs.writeFileSync(corruptedPath, JSON.stringify([], null, 4))
+	}
 
 	if (isVerbose) {
 		console.log('Save Done.')
@@ -225,7 +237,7 @@ function UpdateMainInfo () {
 		.finally(() => Save())
 }
 
-async function UpdateImage () {	
+async function UpdateImage () {
 	const tasks = []
 	for(let i = 0; i < data.length; ++i) {
 		const user = data[i]
@@ -241,22 +253,26 @@ async function UpdateImage () {
 
 			// remove :orig when saving
 			const filename = path.join(StoragePath, user.id, img.replace(':orig', '').substring(img.lastIndexOf('/') + 1))
+			const key = path.join(user.id, img.replace(':orig', '').substring(img.lastIndexOf('/') + 1))
 			
 			if (useRemoteStorage === 'true' && remoteStorageCache.includes(filename)) {
 				continue
-			} else if (useRemoteStorage !== 'true' && fs.existsSync(filename)) {
-				continue
+			} 
+			else if (useRemoteStorage !== 'true') {
+				if ((useProcessedJson === 'true' && processed.includes(key)) || fs.existsSync(filename)) {
+					continue
+				}
 			}
 
 			if (skipUrls.includes(img) == false)
-				tasks.push({ index: tasks.length, img: img, filename: filename })
+				tasks.push({ index: tasks.length, img: img, filename: filename, key: key })
 		}
 	}
 
 	return pMap(tasks, async task => {
 		if (isVerbose)
 			console.log(`Running ${task.index}/${tasks.length}: ${task.img}`)
-		const result = await DownloadImage(task.img, task.filename)
+		const result = await DownloadImage(task.img, task.filename, task.key)
 		return result
 	}, { concurrency: 10 })
 }
@@ -347,6 +363,28 @@ if (require.main === module) {
 			process.exit()
 		}
 	}
+	
+	var corrupted = []
+	if (fs.existsSync(corruptedPath)) {
+		const rawCorrupted = fs.readFileSync(corruptedPath)
+		try {
+			corrupted = JSON.parse(rawCorrupted)
+		} catch (err) {
+			console.log(`Failed Parsing ${corruptedPath}, error = ${err}`)
+			process.exit()
+		}
+	}
+	
+	if (fs.existsSync(processedPath)) {
+		const rawProcessed = fs.readFileSync(processedPath)
+		try {
+			processed = JSON.parse(rawProcessed)
+			processed = processed.filter(x => !corrupted.includes(x))
+		} catch (err) {
+			console.log(`Failed Parsing ${processedPath}, error = ${err}`)
+			process.exit()
+		}
+	}
 
 	if (fs.existsSync(containerPath)) {
 		const rawContainer = fs.readFileSync(containerPath)
@@ -401,6 +439,7 @@ if (require.main === module) {
 			var doneCount = result.filter(Boolean).length
 			if (doneCount > 0) {
 				console.log(`Done/Failed: ${doneCount}/${result.length - doneCount}`)
+				Save()
 			}
 		})
 	} else if (mode === 'clear') {
