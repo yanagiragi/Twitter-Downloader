@@ -54,8 +54,7 @@ async function DownloadImage (url, filename, key) {
 	const result = await FetchImage(url, filename)
 	if (result) {
 		processed.push(key)
-		if (isVerbose)
-			console.log(`Successfully Download ${url} as ${filename}`) 
+		console.log(`Successfully Download ${url} as ${filename}`) 
 	}
 	return result
 }
