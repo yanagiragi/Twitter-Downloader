@@ -20,13 +20,13 @@ const useProcessedJson = args.useProcessJson || 'true'
 
 const isVerbose = (process.env.NODE_ENV !== 'production')
 
-const StoragePath		= (useRemoteStorage === 'true' ? path.join(__dirname, '/Storage_Remote') : path.join(__dirname, '/Storage'))
-const dataFolderPath	= (useRemoteStorage === 'true' ? path.join(__dirname, '/Storage_Remote') : path.join(__dirname, 'data'))
-const dataPath			= path.join(dataFolderPath, 'data.json')
-const processedPath		= path.join(dataFolderPath, 'processed.json')
-const corruptedPath		= path.join(dataFolderPath, 'corrupted.json')
-const containerPath		= path.join(dataFolderPath, 'container.json')
-const skipContainerPath	= path.join(dataFolderPath, 'skip.json')
+const StoragePath = (useRemoteStorage === 'true' ? path.join(__dirname, '/Storage_Remote') : path.join(__dirname, '/Storage'))
+const dataFolderPath = (useRemoteStorage === 'true' ? path.join(__dirname, '/Storage_Remote') : path.join(__dirname, 'data'))
+const dataPath = path.join(dataFolderPath, 'data.json')
+const processedPath = path.join(dataFolderPath, 'processed.json')
+const corruptedPath = path.join(dataFolderPath, 'corrupted.json')
+const containerPath = path.join(dataFolderPath, 'container.json')
+const skipContainerPath = path.join(dataFolderPath, 'skip.json')
 
 const currentDate = DateFormat(new Date())
 const remoteStorageCache = UpdateRemoteStorageCache()
