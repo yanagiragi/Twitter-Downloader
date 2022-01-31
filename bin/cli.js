@@ -220,6 +220,7 @@ async function UpdateUserMainInfo (user) {
 		}
 	} catch (err) {
 		console.log(`Error occurs on ${account}: ${err.message}`)
+		console.log(err.stack)
 	}
 }
 
