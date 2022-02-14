@@ -169,7 +169,7 @@ class TwitterCrawler {
 			return photos
 		}
 
-		const entries = data.data.user.result.timeline.timeline.instructions[0].entries
+		const entries = this.GetEntries(data)
 		const tweetEntries = entries.filter(this.IsTweet)
 
 		const retweetContainer = []
@@ -301,9 +301,13 @@ class TwitterCrawler {
 		const selector = entry => 
 			entry?.content?.entryType === 'TimelineTimelineCursor' && entry?.content?.cursorType === 'Bottom'
 
-		const entries = data.data.user.result.timeline.timeline.instructions[0].entries
+		const entries = this.GetEntries(data)
 		const cursors = entries.filter(selector)
 		return cursors?.[0]?.content?.value
+	}
+
+	GetEntries (data) {
+		return data.data.user.result.timeline.timeline.instructions.filter(x => x.type === 'TimelineAddEntries')[0].entries
 	}
 }
 
