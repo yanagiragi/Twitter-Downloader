@@ -28,7 +28,7 @@ class TwitterCrawler {
 		this.restId = '' // update later
 
 		// Not expose yet configs
-		this.dataPerCount = 20
+		this.dataPerCount = 100
 		this.debug = false 
 	}
 	
@@ -176,7 +176,6 @@ class TwitterCrawler {
 		const tweetContainer = []
 		for (const tweetEntry of tweetEntries) {
 			const tweet = tweetEntry.content.itemContent.tweet_results.result			
-			const tweetId = tweet.rest_id			
 			const content = tweet.legacy.full_text
 			const timestamp = tweet.legacy.created_at // e.g. Sun May 31 02:40:23 +0000 2020
 			const photos = GatherPhotos(tweet)
@@ -220,11 +219,24 @@ class TwitterCrawler {
 
 		// pass params to callback provided from cli.js
 		// the purpose is for caching the results for early breaking the recursively crawls
-		const shouldBreak = this.EarlyBreak(this, [results, retweetResults])
 
 		// eslint-disable-next-line no-trailing-spaces
 		if (this.verbose) { 
-			console.log(`[${this.account}.CrawlFromMainPage] (${this.fetchResults.length}) <${results.length}, ${rawTweetResults.length}, ${rawRetweetResults.length}, ${retweetResults.length}>, depth = ${depth}, shouldBreak = ${shouldBreak}`)
+			console.log(`[${this.account}.CrawlFromMainPage] (${this.fetchResults.length}) <${results.length}, ${rawTweetResults.length}, ${retweetResults.length}, ${rawRetweetResults.length}>, depth = ${depth}, shouldBreak = ${shouldBreak}`)
+
+			console.log('')
+
+			rawTweetResults.forEach(el => {
+				console.log(`\t${el.tweetId}: ${el.content.substring(0, 20)} - ${el.timestamp}`)
+			})
+
+			console.log('---')
+
+			rawRetweetResults.forEach(el => {
+				console.log(`\t${el.tweetId}: ${el.content.substring(0, 20)} - ${el.timestamp}`)
+			})
+
+			console.log('')
 		}
 
 		if (shouldBreak === false && depth <= this.maxDepth) {
@@ -232,6 +244,35 @@ class TwitterCrawler {
 		} else {
 			return [this.fetchResults, this.fetchRetweets]
 		}
+	}
+
+	ParseSearchResult(searchResults) {
+
+		const GatherPhotos = tweet => {
+			const photos = []
+			const entryMedia = tweet?.entities?.media
+			if (entryMedia) {
+				for (const media of entryMedia) {
+					if (media?.type == 'photo') { // only save image instead of thumbnail of the video
+						photos.push(`${media.media_url_https}:orig`)
+					}
+				}
+			}
+			return photos
+		}
+
+		const tweetContainer = []
+
+		const tweetEntries = Object.values(searchResults.globalObjects.tweets)
+		for (const tweetEntry of tweetEntries) {
+			const tweetId = tweetEntry.id
+			const content = tweetEntry.full_text
+			const timestamp = tweetEntry.created_at // e.g. Sun May 31 02:40:23 +0000 2020
+			const photos = GatherPhotos(tweetEntry)
+			tweetContainer.push(new TwitterTweet(tweetId, photos, timestamp, content))
+		}
+
+		return [tweetContainer, []]
 	}
 
 	// obsolete for now
@@ -242,10 +283,10 @@ class TwitterCrawler {
 			throw new Error('Error When Parsing Rest ID')
 		}
 
-		const uriBase = 'https://twitter.com/i/api/2/search/adaptive.json?include_profile_interstitial_type=1&include_blocking=1&include_blocked_by=1&include_followed_by=1&include_want_retweets=1&include_mute_edge=1&include_can_dm=1&include_can_media_tag=1&skip_status=1&cards_platform=Web-12&include_cards=1&include_ext_alt_text=true&include_quote_count=true&include_reply_count=1&tweet_mode=extended&include_entities=true&include_user_entities=true&include_ext_media_color=true&include_ext_media_availability=true&send_error_codes=true&simple_quoted_tweet=true&query_source=typed_query&pc=1&spelling_corrections=1&ext=mediaStats%2ChighlightedLabel'
+		const q = `(from%3A${this.account})%20until%3A${endDate}%20since%3A${startDate}`
+		const query = `include_profile_interstitial_type=1&include_blocking=1&include_blocked_by=1&include_followed_by=1&include_want_retweets=1&include_mute_edge=1&include_can_dm=1&include_can_media_tag=1&include_ext_has_nft_avatar=1&skip_status=1&cards_platform=Web-12&include_cards=1&include_ext_alt_text=true&include_quote_count=true&include_reply_count=1&tweet_mode=extended&include_entities=true&include_user_entities=true&include_ext_media_color=true&include_ext_media_availability=true&include_ext_sensitive_media_warning=true&include_ext_trusted_friends_metadata=true&send_error_codes=true&simple_quoted_tweet=true&count=${this.dataPerCount}&query_source=typed_query&pc=1&spelling_corrections=1&ext=mediaStats,highlightedLabel,hasNftAvatar,voiceInfo,enrichments,superFollowMetadata,unmentionInfo`
 
-		const query = `(from%3A${this.account})%20until%3A${endDate}%20since%3A${startDate}`
-		const uri = `${uriBase}&count=${countPerRequest}&q=${query}`
+		const uri = `https://twitter.com/i/api/2/search/adaptive.json?${encodeURI(query)}&q=${q}`
 
 		const options = {
 			headers: {
@@ -268,15 +309,25 @@ class TwitterCrawler {
 			}
 		}
 
+		if (this.debug) {
+			console.log(uri, options)
+		}
+
 		const resp = await fetch(uri, options)
 		const raw = await resp.text()
+
+		if (this.debug)
+		{
+			JSON.stringify(raw, null, 4)
+		}
+
 		const data = JSON.parse(raw)
 
 		if (data.errors && data.errors[0].message === 'Rate limit exceeded') {
 			throw new Error('Rate limit exceeded')
 		}
-
-		const [rawTweetResults, rawRetweetResults] = this.Parse(data)
+		
+		const [rawTweetResults, rawRetweetResults] = this.ParseSearchResult(data)
 
 		// Sometimes twitter returns duplicated results from different api calls
 		// To deal with this, we filter the raw_results and leave only new TwitterTweets
