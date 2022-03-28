@@ -15,8 +15,9 @@ class TwitterTweet {
 }
 
 class TwitterCrawler {
-	constructor (account, verbose = true, EarlyBreakFunc = x => false, maxDepth = 1e9) {
+	constructor (account, credentials = null, verbose = true, EarlyBreakFunc = x => false, maxDepth = 1e9) {
 		this.account = account
+		this.credentials = Object.assign({ csrfToken: '', authToken: ''}, credentials)
 		this.fetchResults = [] // container for fetched results
 		this.fetchRetweets = [] // container for fetched retweets for detect duplicate cases
 		this.EarlyBreak = EarlyBreakFunc
@@ -265,7 +266,7 @@ class TwitterCrawler {
 
 		const tweetEntries = Object.values(searchResults.globalObjects.tweets)
 		for (const tweetEntry of tweetEntries) {
-			const tweetId = tweetEntry.id
+			const tweetId = tweetEntry.id_str
 			const content = tweetEntry.full_text
 			const timestamp = tweetEntry.created_at // e.g. Sun May 31 02:40:23 +0000 2020
 			const photos = GatherPhotos(tweetEntry)
@@ -284,11 +285,11 @@ class TwitterCrawler {
 		}
 
 		const q = `(from%3A${this.account})%20until%3A${endDate}%20since%3A${startDate}`
-		const query = `include_profile_interstitial_type=1&include_blocking=1&include_blocked_by=1&include_followed_by=1&include_want_retweets=1&include_mute_edge=1&include_can_dm=1&include_can_media_tag=1&include_ext_has_nft_avatar=1&skip_status=1&cards_platform=Web-12&include_cards=1&include_ext_alt_text=true&include_quote_count=true&include_reply_count=1&tweet_mode=extended&include_entities=true&include_user_entities=true&include_ext_media_color=true&include_ext_media_availability=true&include_ext_sensitive_media_warning=true&include_ext_trusted_friends_metadata=true&send_error_codes=true&simple_quoted_tweet=true&count=${this.dataPerCount}&query_source=typed_query&pc=1&spelling_corrections=1&ext=mediaStats,highlightedLabel,hasNftAvatar,voiceInfo,enrichments,superFollowMetadata,unmentionInfo`
+		const query = `include_profile_interstitial_type=1&include_blocking=1&include_blocked_by=1&include_followed_by=1&include_want_retweets=1&include_mute_edge=1&include_can_dm=1&include_can_media_tag=1&include_ext_has_nft_avatar=1&skip_status=1&cards_platform=Web-12&include_cards=1&include_ext_alt_text=true&include_quote_count=true&include_reply_count=1&tweet_mode=extended&include_entities=true&include_user_entities=true&include_ext_media_color=true&include_ext_media_availability=true&include_ext_sensitive_media_warning=true&include_ext_trusted_friends_metadata=true&send_error_codes=true&simple_quoted_tweet=true&count=${this.dataPerCount}&query_source=typed_query&pc=1&spelling_corrections=1&ext=mediaStats%2ChighlightedLabel%2ChasNftAvatar%2CvoiceInfo%2Cenrichments%2CsuperFollowMetadata%2CunmentionInfo`
 
-		const uri = `https://twitter.com/i/api/2/search/adaptive.json?${encodeURI(query)}&q=${q}`
+		const uri = `https://twitter.com/i/api/2/search/adaptive.json?${query}&q=${q}`
 
-		const options = {
+		const noLoginOptions = {
 			headers: {
 				'User-Agent': UserAgent,
 				Accept: '*/*',
@@ -309,6 +310,27 @@ class TwitterCrawler {
 			}
 		}
 
+		const LoginOptions = {
+			headers: {
+				'User-Agent': UserAgent,
+				'authorization': this.GetAuthorization(),
+				'x-csrf-token': this.credentials.csrfToken,
+				'Cookie': `ct0=${this.credentials.csrfToken};auth_token=${this.credentials.authToken}`
+			},
+		}
+
+		let options = LoginOptions
+		const isCredentialValid = 
+			this.credentials?.csrfToken?.length == null ||
+			this.credentials?.authToken?.length == null ||
+			this.credentials?.authToken?.length == 0 ||
+			this.credentials?.csrfToken?.length == 0
+		if (isCredentialValid)
+		{
+			console.log('Detect user does not provide cookie, use incognito mode instead. (unable to fetch mature contents)')
+			options = noLoginOptions
+		}
+
 		if (this.debug) {
 			console.log(uri, options)
 		}
@@ -318,7 +340,7 @@ class TwitterCrawler {
 
 		if (this.debug)
 		{
-			JSON.stringify(raw, null, 4)
+			console.log(raw)
 		}
 
 		const data = JSON.parse(raw)
@@ -365,7 +387,7 @@ class TwitterCrawler {
 // Tests
 if (require.main === module) {
 	const account = 'HitenKei'
-	const crawler = new TwitterCrawler(account, true, () => false, 1)
+	const crawler = new TwitterCrawler(account, { csrfToken: '', authToken: '' }, true, () => false, 1)
 
 	crawler.CrawlFromMainPage().then(result => {
 		console.log('result = ', result)

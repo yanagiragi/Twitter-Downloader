@@ -17,6 +17,8 @@ const sync = args.sync || 'false'
 const noEarlyBreak = args.deep || 'false'
 const useRemoteStorage = args.useRemoteStorage || 'false'
 const useProcessedJson = args.useProcessJson || 'true'
+const csrfToken = args.csrfToken
+const authToken = args.authToken
 
 const isVerbose = (process.env.NODE_ENV !== 'production')
 
@@ -129,7 +131,7 @@ async function UpdateUserSearchInfo (user) {
 		return
 	} else {
 		let updateCount = 1
-		const crawler = new TwitterCrawler(account, isVerbose)
+		const crawler = new TwitterCrawler(account, { csrfToken, authToken }, isVerbose)
 		while (FormatDate(startDate) < FormatDate(currentDate)) {
 			const nextDate = IncreaseDate(startDate, daySkip)
 			if (isVerbose) { console.log(`Fetching ${account}, Date = ${startDate} ~ ${nextDate}`) }
@@ -203,7 +205,7 @@ async function UpdateUserMainInfo (user) {
 	const breakHandler = noEarlyBreak === 'true' ? NoEarlyBreak : EarlyBreak
 
 	try {
-		const [crawlResult, crawlRetweets] = await new TwitterCrawler(account, isVerbose, breakHandler).CrawlFromMainPage()
+		const [crawlResult, crawlRetweets] = await new TwitterCrawler(account, { csrfToken, authToken }, isVerbose, breakHandler).CrawlFromMainPage()
 
 		crawlResult.map(x => {
 			const isExist = containers[account].filter(ele => ele.tweetId === x.tweetId).length !== 0
