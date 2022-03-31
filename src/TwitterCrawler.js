@@ -176,7 +176,8 @@ class TwitterCrawler {
 		const retweetContainer = []
 		const tweetContainer = []
 		for (const tweetEntry of tweetEntries) {
-			const tweet = tweetEntry.content.itemContent.tweet_results.result			
+			const tweet = tweetEntry.content.itemContent.tweet_results.result
+			const tweetId = tweet.rest_id
 			const content = tweet.legacy.full_text
 			const timestamp = tweet.legacy.created_at // e.g. Sun May 31 02:40:23 +0000 2020
 			const photos = GatherPhotos(tweet)
@@ -220,11 +221,14 @@ class TwitterCrawler {
 
 		// pass params to callback provided from cli.js
 		// the purpose is for caching the results for early breaking the recursively crawls
+		const shouldBreak = this.EarlyBreak(this, [results, retweetResults])
 
 		// eslint-disable-next-line no-trailing-spaces
 		if (this.verbose) { 
 			console.log(`[${this.account}.CrawlFromMainPage] (${this.fetchResults.length}) <${results.length}, ${rawTweetResults.length}, ${retweetResults.length}, ${rawRetweetResults.length}>, depth = ${depth}, shouldBreak = ${shouldBreak}`)
-
+		}
+		
+		if (this.debug) {
 			console.log('')
 
 			rawTweetResults.forEach(el => {
