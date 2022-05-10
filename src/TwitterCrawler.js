@@ -4,6 +4,8 @@ const { string } = require('easy-table')
 
 const UserAgent = 'User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:84.0) Gecko/20100101 Firefox/84.0'
 
+const defaulfCsrfToken = '9f314aa844a812c7fc417dc6c3ab5aac'
+
 class TwitterTweet {
 	constructor (tweetId, photos, timestamp, content) {
 		this.content = content
@@ -127,7 +129,7 @@ class TwitterCrawler {
 				'Accept-Language': 'zh-TW,zh;q=0.8,en-US;q=0.5,en;q=0.3',
 				'x-twitter-client-language': 'zh-tw',
 				'x-twitter-active-user': 'yes',
-				'x-csrf-token': '24e4afcba440e72020f828c5ce2482a9',
+				'x-csrf-token': defaulfCsrfToken,
 				Origin: 'https://twitter.com',
 				DNT: 1,
 				Connection: 'keep-alive',
@@ -303,7 +305,7 @@ class TwitterCrawler {
 				'Accept-Language': 'zh-TW,zh;q=0.8,en-US;q=0.5,en;q=0.3',
 				'x-twitter-client-language': 'zh-tw',
 				'x-twitter-active-user': 'yes',
-				'x-csrf-token': '24e4afcba440e72020f828c5ce2482a9',
+				'x-csrf-token': defaulfCsrfToken,
 				Origin: 'https://twitter.com',
 				DNT: 1,
 				Connection: 'keep-alive',
