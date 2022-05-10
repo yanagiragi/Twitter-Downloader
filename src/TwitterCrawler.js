@@ -4,7 +4,7 @@ const { string } = require('easy-table')
 
 const UserAgent = 'User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:84.0) Gecko/20100101 Firefox/84.0'
 
-const defaulfCsrfToken = '9f314aa844a812c7fc417dc6c3ab5aac'
+const defaulfCsrfToken = 'a1f272646de62b7f37cf2104814fceab'
 
 class TwitterTweet {
 	constructor (tweetId, photos, timestamp, content) {
@@ -36,6 +36,10 @@ class TwitterCrawler {
 	}
 	
 	async Preprocess () {
+
+		// Get Authorization token, constant for now
+		this.authorization = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA'
+
 		// Get guestId (x-guest-token)
 		if (this.guestId === '') {
 			this.guestId = await this.GetGuestID()
@@ -47,20 +51,14 @@ class TwitterCrawler {
 		}
 	}
 
-	GetAuthorization () {
-		return 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA'
-	}
-
 	async GetGuestID () {
-		if (this.guestId !== '') { return this.guestId }
-
 		const uri = 'https://api.twitter.com/1.1/guest/activate.json'
 		const resp = await fetch(uri, {
 			method: 'POST',
 			headers: {
 				// 'User-Agent': UserAgent,
 				// 'content-type': 'application/x-www-form-urlencoded',
-				authorization: this.GetAuthorization()
+				authorization: this.authorization
 			}
 		})
 		const data = await resp.text()
@@ -81,20 +79,22 @@ class TwitterCrawler {
 		const options = {
 			headers: {
 				'User-Agent': UserAgent,
-				Accept: '*/*',
+				'Accept': '*/*',
 				'content-type': 'application/json',
-				authorization: this.GetAuthorization(),
-				'x-guest-token': this.GetGuestID()
+				'authorization': this.authorization,
+				'x-guest-token': this.guestId
 			}
 		}
+		
 		const resp = await fetch(uri, options)
+		const raw = await resp.text()
 
 		try {
-			const data = await resp.json()
+			const data = JSON.parse(raw)
 			const restId = data.data.user.rest_id
 			return restId
 		} catch (err) {
-			throw new Error(`GetRestID() of ${this.account} Error: ${err}`)
+			throw new Error(`GetRestID() of ${this.account} Error: ${err}, Raw = ${raw}`)
 		}
 	}
 
@@ -124,7 +124,7 @@ class TwitterCrawler {
 				'User-Agent': UserAgent,
 				Accept: '*/*',
 				'content-type': 'application/json',
-				authorization: this.GetAuthorization(),
+				authorization: this.authorization,
 				'x-guest-token': this.guestId,
 				'Accept-Language': 'zh-TW,zh;q=0.8,en-US;q=0.5,en;q=0.3',
 				'x-twitter-client-language': 'zh-tw',
@@ -300,7 +300,7 @@ class TwitterCrawler {
 				'User-Agent': UserAgent,
 				Accept: '*/*',
 				'content-type': 'application/json',
-				authorization: this.GetAuthorization(),
+				authorization: this.authorization,
 				'x-guest-token': this.guestId,
 				'Accept-Language': 'zh-TW,zh;q=0.8,en-US;q=0.5,en;q=0.3',
 				'x-twitter-client-language': 'zh-tw',
@@ -319,7 +319,7 @@ class TwitterCrawler {
 		const LoginOptions = {
 			headers: {
 				'User-Agent': UserAgent,
-				'authorization': this.GetAuthorization(),
+				'authorization': this.authorization,
 				'x-csrf-token': this.credentials.csrfToken,
 				'Cookie': `ct0=${this.credentials.csrfToken};auth_token=${this.credentials.authToken}`
 			},
