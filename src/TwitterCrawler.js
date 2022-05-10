@@ -348,11 +348,18 @@ class TwitterCrawler {
 		{
 			console.log(raw)
 		}
-
+		
 		const data = JSON.parse(raw)
 
-		if (data.errors && data.errors[0].message === 'Rate limit exceeded') {
-			throw new Error('Rate limit exceeded')
+		if (data.errors)
+		{
+			const errorMessage = data.errors[0].message
+			if (errorMessage === 'Rate limit exceeded') {
+				throw new Error('Rate limit exceeded')
+			}
+			else if (errorMessage.includes('temporarily locked')) {
+				throw new Error('Account temporarily locked')
+			}
 		}
 		
 		const [rawTweetResults, rawRetweetResults] = this.ParseSearchResult(data)
