@@ -7,19 +7,20 @@ const UserAgent = 'User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:84.0) 
 const defaulfCsrfToken = 'a1f272646de62b7f37cf2104814fceab'
 
 class TwitterTweet {
-	constructor (tweetId, photos, timestamp, content) {
+	constructor(tweetId, photos, timestamp, content, isSensitive) {
 		this.content = content
 		this.tweetId = tweetId
 		this.photos = photos
 		this.timestamp = timestamp
 		this.hasPhoto = photos.length > 0
+		this.isSensitive = isSensitive
 	}
 }
 
 class TwitterCrawler {
-	constructor (account, credentials = null, verbose = true, EarlyBreakFunc = x => false, maxDepth = 1e9) {
+	constructor(account, credentials = null, verbose = true, EarlyBreakFunc = x => false, maxDepth = 1e9) {
 		this.account = account
-		this.credentials = Object.assign({ csrfToken: '', authToken: ''}, credentials)
+		this.credentials = Object.assign({ csrfToken: '', authToken: '' }, credentials)
 		this.fetchResults = [] // container for fetched results
 		this.fetchRetweets = [] // container for fetched retweets for detect duplicate cases
 		this.EarlyBreak = EarlyBreakFunc
@@ -32,10 +33,10 @@ class TwitterCrawler {
 
 		// Not expose yet configs
 		this.dataPerCount = 100
-		this.debug = false 
+		this.debug = false
 	}
-	
-	async Preprocess () {
+
+	async Preprocess() {
 
 		// Get Authorization token, constant for now
 		this.authorization = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA'
@@ -51,7 +52,7 @@ class TwitterCrawler {
 		}
 	}
 
-	async GetGuestID () {
+	async GetGuestID() {
 		const uri = 'https://api.twitter.com/1.1/guest/activate.json'
 		const resp = await fetch(uri, {
 			method: 'POST',
@@ -74,7 +75,7 @@ class TwitterCrawler {
 		}
 	}
 
-	async GetRestID () {
+	async GetRestID() {
 		const uri = `https://api.twitter.com/graphql/-xfUfZsnR_zqjFd-IfrN5A/UserByScreenName?variables=%7B%22screen_name%22%3A%22${this.account}%22%2C%22withHighlightedLabel%22%3Atrue%7D`
 		const options = {
 			headers: {
@@ -85,7 +86,7 @@ class TwitterCrawler {
 				'x-guest-token': this.guestId
 			}
 		}
-		
+
 		const resp = await fetch(uri, options)
 		const raw = await resp.text()
 
@@ -98,7 +99,7 @@ class TwitterCrawler {
 		}
 	}
 
-	async FetchFromMainPage (position) {
+	async FetchFromMainPage(position) {
 
 		const query = `variables={
 			"userId":${this.restId},
@@ -119,26 +120,7 @@ class TwitterCrawler {
 
 		const uri = `https://twitter.com/i/api/graphql/NnaaAasMTEXwIY7b8BC7mg/UserTweets?${encodeURI(query)}`
 
-		const options = {
-			headers: {
-				'User-Agent': UserAgent,
-				Accept: '*/*',
-				'content-type': 'application/json',
-				authorization: this.authorization,
-				'x-guest-token': this.guestId,
-				'Accept-Language': 'zh-TW,zh;q=0.8,en-US;q=0.5,en;q=0.3',
-				'x-twitter-client-language': 'zh-tw',
-				'x-twitter-active-user': 'yes',
-				'x-csrf-token': defaulfCsrfToken,
-				Origin: 'https://twitter.com',
-				DNT: 1,
-				Connection: 'keep-alive',
-				Referer: 'https://twitter.com/',
-				Pragma: 'no-cache',
-				'Cache-Control': 'no-cache',
-				TE: 'Trailers'
-			}
-		}
+		const options = this.GetOptions(true)
 
 		if (this.debug) {
 			console.log(uri, options)
@@ -157,20 +139,20 @@ class TwitterCrawler {
 		return data
 	}
 
-	Parse (data) {
-
-		const GatherPhotos = tweet => {
-			const photos = []
-			const entryMedia = tweet?.legacy?.entities?.media
-			if (entryMedia) {
-				for (const media of entryMedia) {
-					if (media?.type == 'photo') { // only save image instead of thumbnail of the video
-						photos.push(`${media.media_url_https}:orig`)
-					}
+	GatherPhotos(tweet) {
+		const photos = []
+		const entryMedia = tweet?.legacy?.entities?.media
+		if (entryMedia) {
+			for (const media of entryMedia) {
+				if (media?.type == 'photo') { // only save image instead of thumbnail of the video
+					photos.push(`${media.media_url_https}:orig`)
 				}
 			}
-			return photos
 		}
+		return photos
+	}
+
+	ParseMainPageResult(data) {
 
 		const entries = this.GetEntries(data)
 		const tweetEntries = entries.filter(this.IsTweet)
@@ -182,19 +164,22 @@ class TwitterCrawler {
 			const tweetId = tweet.rest_id
 			const content = tweet.legacy.full_text
 			const timestamp = tweet.legacy.created_at // e.g. Sun May 31 02:40:23 +0000 2020
-			const photos = GatherPhotos(tweet)
+			const photos = this.GatherPhotos(tweet)
+			const isSensitive = this.IsSensitiveContent(tweetEntry)
+
+			const twitterTweet = new TwitterTweet(tweetId, photos, timestamp, content, isSensitive)
 
 			if (this.IsRetweet(tweetEntry)) {
-				retweetContainer.push(new TwitterTweet(tweetId, photos, timestamp, content))
+				retweetContainer.push(twitterTweet)
 			} else {
-				tweetContainer.push(new TwitterTweet(tweetId, photos, timestamp, content))
+				tweetContainer.push(twitterTweet)
 			}
 		}
 
 		return [tweetContainer, retweetContainer]
 	}
 
-	async CrawlFromMainPage (depth = 0) {
+	async CrawlFromMainPage(depth = 0) {
 		await this.Preprocess()
 
 		if (this.restId === '') {
@@ -203,7 +188,7 @@ class TwitterCrawler {
 
 		const data = await this.FetchFromMainPage(depth)
 
-		const [rawTweetResults, rawRetweetResults] = this.Parse(data)
+		const [rawTweetResults, rawRetweetResults] = this.ParseMainPageResult(data)
 
 		if (this.debug) {
 			console.log(JSON.stringify(data))
@@ -226,10 +211,10 @@ class TwitterCrawler {
 		const shouldBreak = this.EarlyBreak(this, [results, retweetResults])
 
 		// eslint-disable-next-line no-trailing-spaces
-		if (this.verbose) { 
+		if (this.verbose) {
 			console.log(`[${this.account}.CrawlFromMainPage] (${this.fetchResults.length}) <${results.length}, ${rawTweetResults.length}, ${retweetResults.length}, ${rawRetweetResults.length}>, depth = ${depth}, shouldBreak = ${shouldBreak}`)
 		}
-		
+
 		if (this.debug) {
 			console.log('')
 
@@ -255,19 +240,6 @@ class TwitterCrawler {
 
 	ParseSearchResult(searchResults) {
 
-		const GatherPhotos = tweet => {
-			const photos = []
-			const entryMedia = tweet?.entities?.media
-			if (entryMedia) {
-				for (const media of entryMedia) {
-					if (media?.type == 'photo') { // only save image instead of thumbnail of the video
-						photos.push(`${media.media_url_https}:orig`)
-					}
-				}
-			}
-			return photos
-		}
-
 		const tweetContainer = []
 
 		const tweetEntries = Object.values(searchResults.globalObjects.tweets)
@@ -275,26 +247,39 @@ class TwitterCrawler {
 			const tweetId = tweetEntry.id_str
 			const content = tweetEntry.full_text
 			const timestamp = tweetEntry.created_at // e.g. Sun May 31 02:40:23 +0000 2020
-			const photos = GatherPhotos(tweetEntry)
-			tweetContainer.push(new TwitterTweet(tweetId, photos, timestamp, content))
+			const photos = this.GatherPhotos(tweetEntry)
+			const isSensitive = this.IsSensitiveContent(tweetEntry)
+			tweetContainer.push(new TwitterTweet(tweetId, photos, timestamp, content, isSensitive))
 		}
 
 		return [tweetContainer, []]
 	}
 
-	// obsolete for now
-	async CrawlFromAdvancedSearch (startDate, endDate, countPerRequest = 1000) {
+	async FetchFromTweet(tweetId) {
+
 		await this.Preprocess()
 
-		if (this.restId === '') {
-			throw new Error('Error When Parsing Rest ID')
-		}
+		const query = `{"focalTweetId":"${tweetId}","with_rux_injections":false,"includePromotedContent":true,"withCommunity":true,"withQuickPromoteEligibilityTweetFields":true,"withBirdwatchNotes":false,"withSuperFollowsUserFields":true,"withDownvotePerspective":false,"withReactionsMetadata":false,"withReactionsPerspective":false,"withSuperFollowsTweetFields":true,"withVoice":true,"withV2Timeline":true}&features={"verified_phone_label_enabled":false,"responsive_web_graphql_timeline_navigation_enabled":true,"unified_cards_ad_metadata_container_dynamic_card_content_query_enabled":true,"tweetypie_unmention_optimization_enabled":true,"responsive_web_uc_gql_enabled":true,"vibe_api_enabled":true,"responsive_web_edit_tweet_api_enabled":true,"graphql_is_translatable_rweb_tweet_is_translatable_enabled":true,"standardized_nudges_misinfo":true,"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled":false,"interactive_text_enabled":true,"responsive_web_text_conversations_enabled":false,"responsive_web_enhance_cards_enabled":true}`
 
-		const q = `(from%3A${this.account})%20until%3A${endDate}%20since%3A${startDate}`
-		const query = `include_profile_interstitial_type=1&include_blocking=1&include_blocked_by=1&include_followed_by=1&include_want_retweets=1&include_mute_edge=1&include_can_dm=1&include_can_media_tag=1&include_ext_has_nft_avatar=1&skip_status=1&cards_platform=Web-12&include_cards=1&include_ext_alt_text=true&include_quote_count=true&include_reply_count=1&tweet_mode=extended&include_entities=true&include_user_entities=true&include_ext_media_color=true&include_ext_media_availability=true&include_ext_sensitive_media_warning=true&include_ext_trusted_friends_metadata=true&send_error_codes=true&simple_quoted_tweet=true&count=${this.dataPerCount}&query_source=typed_query&pc=1&spelling_corrections=1&ext=mediaStats%2ChighlightedLabel%2ChasNftAvatar%2CvoiceInfo%2Cenrichments%2CsuperFollowMetadata%2CunmentionInfo`
+		const options = this.GetOptions()
 
-		const uri = `https://twitter.com/i/api/2/search/adaptive.json?${query}&q=${q}`
+		const resp = await fetch(`https://twitter.com/i/api/graphql/lwMlLKa0uCr-By_siQJaGQ/TweetDetail?variables=${encodeURI(query)}`, options)
+		const raw = await resp.json()
 
+		const entries = raw?.data?.threaded_conversation_with_injections_v2?.instructions?.[0]?.entries
+		const entry = entries?.[0]
+
+		const tweet = entry?.content?.itemContent?.tweet_results?.result
+
+		const content = tweet?.legacy?.full_text
+		const timestamp = tweet?.legacy?.created_at // e.g. Sun May 31 02:40:23 +0000 2020
+		const photos = this.GatherPhotos(tweet)
+		const isSensitive = this.IsSensitiveContent(entry)
+
+		return new TwitterTweet(tweetId, photos, timestamp, content, isSensitive)
+	}
+
+	GetOptions(useNoLogin = false) {
 		const noLoginOptions = {
 			headers: {
 				'User-Agent': UserAgent,
@@ -325,17 +310,36 @@ class TwitterCrawler {
 			},
 		}
 
+		if (useNoLogin) {
+			return noLoginOptions
+		}
+
 		let options = LoginOptions
-		const isCredentialValid = 
+		const isCredentialValid =
 			this.credentials?.csrfToken?.length == null ||
 			this.credentials?.authToken?.length == null ||
 			this.credentials?.authToken?.length == 0 ||
 			this.credentials?.csrfToken?.length == 0
-		if (isCredentialValid)
-		{
+		if (isCredentialValid) {
 			console.log('Detect user does not provide cookie, use incognito mode instead. (unable to fetch mature contents)')
 			options = noLoginOptions
 		}
+
+		return options
+	}
+
+	async CrawlFromAdvancedSearch(startDate, endDate, countPerRequest = 1000) {
+		await this.Preprocess()
+
+		if (this.restId === '') {
+			throw new Error('Error When Parsing Rest ID')
+		}
+
+		const q = `(from%3A${this.account})%20until%3A${endDate}%20since%3A${startDate}`
+		const query = `include_profile_interstitial_type=1&include_blocking=1&include_blocked_by=1&include_followed_by=1&include_want_retweets=1&include_mute_edge=1&include_can_dm=1&include_can_media_tag=1&include_ext_has_nft_avatar=1&skip_status=1&cards_platform=Web-12&include_cards=1&include_ext_alt_text=true&include_quote_count=true&include_reply_count=1&tweet_mode=extended&include_entities=true&include_user_entities=true&include_ext_media_color=true&include_ext_media_availability=true&include_ext_sensitive_media_warning=true&include_ext_trusted_friends_metadata=true&send_error_codes=true&simple_quoted_tweet=true&count=${this.dataPerCount}&query_source=typed_query&pc=1&spelling_corrections=1&ext=mediaStats%2ChighlightedLabel%2ChasNftAvatar%2CvoiceInfo%2Cenrichments%2CsuperFollowMetadata%2CunmentionInfo`
+
+		const uri = `https://twitter.com/i/api/2/search/adaptive.json?${query}&q=${q}`
+		let options = this.GetOptions()
 
 		if (this.debug) {
 			console.log(uri, options)
@@ -344,24 +348,26 @@ class TwitterCrawler {
 		const resp = await fetch(uri, options)
 		const raw = await resp.text()
 
-		if (this.debug)
-		{
+		if (this.debug) {
 			console.log(raw)
 		}
-		
+
 		const data = JSON.parse(raw)
 
-		if (data.errors)
-		{
+		if (data.errors) {
 			const errorMessage = data.errors[0].message
 			if (errorMessage === 'Rate limit exceeded') {
 				throw new Error('Rate limit exceeded')
 			}
+			else if (errorMessage === 'Forbidden.') {
+				throw new Error('Forbidden')
+			}
 			else if (errorMessage.includes('temporarily locked')) {
 				throw new Error('Account temporarily locked')
 			}
+			throw new Error(`${errorMessage}`)
 		}
-		
+
 		const [rawTweetResults, rawRetweetResults] = this.ParseSearchResult(data)
 
 		// Sometimes twitter returns duplicated results from different api calls
@@ -383,8 +389,13 @@ class TwitterCrawler {
 		return entry?.content?.itemContent?.itemType === 'TimelineTweet'
 	}
 
-	GetCursor (data) {
-		const selector = entry => 
+	IsSensitiveContent(entry) {
+		const result = entry?.content?.itemContent?.tweet_results?.result
+		return result?.__typename == 'TweetTombstone' || result?.legacy?.possibly_sensitive
+	}
+
+	GetCursor(data) {
+		const selector = entry =>
 			entry?.content?.entryType === 'TimelineTimelineCursor' && entry?.content?.cursorType === 'Bottom'
 
 		const entries = this.GetEntries(data)
@@ -392,22 +403,33 @@ class TwitterCrawler {
 		return cursors?.[0]?.content?.value
 	}
 
-	GetEntries (data) {
+	GetEntries(data) {
 		return data.data.user.result.timeline.timeline.instructions.filter(x => x.type === 'TimelineAddEntries')[0].entries
 	}
 }
 
 // Tests
 if (require.main === module) {
-	const account = 'HitenKei'
-	const crawler = new TwitterCrawler(account, { csrfToken: '', authToken: '' }, true, () => false, 1)
 
+	const csrfToken = ''
+	const authToken = ''
+
+	const account = 'HitenKei'
+	const crawler = new TwitterCrawler(account, { csrfToken, authToken }, true, () => false, 1)
+
+	// Crawl Test
 	crawler.CrawlFromMainPage().then(result => {
 		console.log('result = ', result)
 		crawler.CrawlFromAdvancedSearch('2020-02-08', '2020-03-01').then(result => {
 			console.log('result = ', result)
 		})
 	})
+
+	// Fetch Test
+	const case1 = '1585753743462518784' // normal content
+	const case2 = '1586374516540047360' // mature content
+	const tasks = [case1, case2].map(x => crawler.FetchFromTweet(x))
+	Promise.all(tasks).then(console.log)
 }
 
 exports.TwitterTweet = TwitterTweet
