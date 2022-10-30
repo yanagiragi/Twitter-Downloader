@@ -391,7 +391,7 @@ class TwitterCrawler {
 
 	IsSensitiveContent(entry) {
 		const result = entry?.content?.itemContent?.tweet_results?.result
-		return result?.__typename == 'TweetTombstone' || result?.tweet.legacy?.possibly_sensitive
+		return result?.__typename == 'TweetTombstone' || result?.tweet?.legacy?.possibly_sensitive
 	}
 
 	GetCursor(data) {
