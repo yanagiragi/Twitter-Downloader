@@ -269,8 +269,8 @@ class TwitterCrawler {
 		const entries = raw?.data?.threaded_conversation_with_injections_v2?.instructions?.[0]?.entries
 		const entry = entries?.[0]
 
-		const tweet = entry?.content?.itemContent?.tweet_results?.result
-
+		const result = entry?.content?.itemContent?.tweet_results?.result
+		const tweet = result.__typename == "TweetWithVisibilityResults" ? result.tweet : result
 		const content = tweet?.legacy?.full_text
 		const timestamp = tweet?.legacy?.created_at // e.g. Sun May 31 02:40:23 +0000 2020
 		const photos = this.GatherPhotos(tweet)
@@ -391,7 +391,9 @@ class TwitterCrawler {
 
 	IsSensitiveContent(entry) {
 		const result = entry?.content?.itemContent?.tweet_results?.result
-		return result?.__typename == 'TweetTombstone' || result?.tweet?.legacy?.possibly_sensitive
+		return result?.__typename == 'TweetTombstone'
+			|| result?.tweet?.legacy?.possibly_sensitive  // result?.__typename is "TweetWithVisibilityResults"
+			|| result?.legacy?.possibly_sensitive         // result?.__typename is "Tweets"
 	}
 
 	GetCursor(data) {
