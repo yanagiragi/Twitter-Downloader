@@ -120,7 +120,7 @@ class TwitterCrawler {
 
 		const uri = `https://twitter.com/i/api/graphql/NnaaAasMTEXwIY7b8BC7mg/UserTweets?${encodeURI(query)}`
 
-		const options = this.GetOptions(true)
+		const options = this.GetOptions()
 
 		if (this.debug) {
 			console.log(uri, options)
@@ -160,7 +160,7 @@ class TwitterCrawler {
 		const retweetContainer = []
 		const tweetContainer = []
 		for (const tweetEntry of tweetEntries) {
-			const tweet = tweetEntry.content.itemContent.tweet_results.result
+			const tweet = this.GetTweetFromTweetEntry(tweetEntry)
 			const tweetId = tweet.rest_id
 			const content = tweet.legacy.full_text
 			const timestamp = tweet.legacy.created_at // e.g. Sun May 31 02:40:23 +0000 2020
@@ -268,9 +268,8 @@ class TwitterCrawler {
 
 		const entries = raw?.data?.threaded_conversation_with_injections_v2?.instructions?.[0]?.entries
 		const entry = entries?.[0]
+		const tweet = this.GetTweetFromTweetEntry(entry)
 
-		const result = entry?.content?.itemContent?.tweet_results?.result
-		const tweet = result.__typename == "TweetWithVisibilityResults" ? result.tweet : result
 		const content = tweet?.legacy?.full_text
 		const timestamp = tweet?.legacy?.created_at // e.g. Sun May 31 02:40:23 +0000 2020
 		const photos = this.GatherPhotos(tweet)
@@ -381,8 +380,15 @@ class TwitterCrawler {
 		return [results, retweetResults]
 	}
 
+	GetTweetFromTweetEntry(entry) {
+		const result = entry?.content?.itemContent?.tweet_results?.result
+		const tweet = result.__typename == 'TweetWithVisibilityResults' ? result.tweet : result
+		return tweet
+	}
+
 	IsRetweet(entry) {
-		return Boolean(entry?.content?.itemContent?.tweet_results?.result?.legacy?.retweeted_status_result)
+		const tweet = this.GetTweetFromTweetEntry(entry)
+		return Boolean(tweet.legacy.retweeted_status_result)
 	}
 
 	IsTweet(entry) {
@@ -390,10 +396,8 @@ class TwitterCrawler {
 	}
 
 	IsSensitiveContent(entry) {
-		const result = entry?.content?.itemContent?.tweet_results?.result
-		return result?.__typename == 'TweetTombstone'
-			|| result?.tweet?.legacy?.possibly_sensitive  // result?.__typename is "TweetWithVisibilityResults"
-			|| result?.legacy?.possibly_sensitive         // result?.__typename is "Tweets"
+		const tweet = this.GetTweetFromTweetEntry(entry)
+		return tweet?.legacy?.possibly_sensitive ?? false
 	}
 
 	GetCursor(data) {
