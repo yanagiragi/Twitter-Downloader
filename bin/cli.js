@@ -17,6 +17,7 @@ const sync = args.sync || 'false'
 const noEarlyBreak = args.deep || 'false'
 const useRemoteStorage = args.useRemoteStorage || 'false'
 const useProcessedJson = args.useProcessJson || 'true'
+const useOneShot = args.oneShot === 'true' || false
 const csrfToken = args.csrfToken
 const authToken = args.authToken
 
@@ -128,7 +129,7 @@ async function UpdateUserSearchInfo (user) {
 
 	if (startDate === currentDate) {
 		if (isVerbose) { console.log(`${account} Already up to date. Skip.`) }
-		return
+		return false
 	} else {
 		let updateCount = 1
 		const crawler = new TwitterCrawler(account, { csrfToken, authToken }, isVerbose)
@@ -164,6 +165,11 @@ async function UpdateUserSearchInfo (user) {
 				}
 
 				startDate = nextDate
+
+				if (useOneShot) {
+					break
+				}
+
 			} catch (err) {
 				console.log(`Error occurs on ${account}: ${err.message}`)
 				break
@@ -175,11 +181,16 @@ async function UpdateUserSearchInfo (user) {
 	}
 
 	user.startDate = startDate
+	return true
 }
 
 async function UpdateSearchInfoSync () {
 	for (const user of data) {
-		await UpdateUserSearchInfo(user)
+		const hasChange = await UpdateUserSearchInfo(user)
+		//console.log(`${JSON.stringify(user)} -> ${hasChange}`)
+		if (useOneShot && hasChange) {
+			break
+		}
 	}
 	Save()
 }
