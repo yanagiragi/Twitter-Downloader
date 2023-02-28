@@ -18,7 +18,7 @@ const noEarlyBreak = args.deep || 'false'
 const useRemoteStorage = args.useRemoteStorage || 'false'
 const useProcessedJson = args.useProcessJson || 'true'
 const useOneShot = args.oneShot === 'true' || false
-const cookies = args.cookies
+const cookie = args.cookie
 
 const isVerbose = (process.env.NODE_ENV !== 'production')
 
@@ -38,7 +38,7 @@ var processed = []
 var containers = {}
 var skipUrls = []
 
-function UpdateRemoteStorageCache () {
+function UpdateRemoteStorageCache() {
 	if (useRemoteStorage !== 'true') {
 		return []
 	}
@@ -52,21 +52,21 @@ function UpdateRemoteStorageCache () {
 	return res
 }
 
-async function DownloadImage (url, filename, key) {
+async function DownloadImage(url, filename, key) {
 	const result = await FetchImage(url, filename)
 	if (result) {
 		processed.push(key)
-		console.log(`Successfully Download ${url} as ${filename}`) 
+		console.log(`Successfully Download ${url} as ${filename}`)
 	}
 	return result
 }
 
-function NoEarlyBreak (instance, resultContainers) {
+function NoEarlyBreak(instance, resultContainers) {
 	const [tweetContainer, retweetContainer] = resultContainers
 	return tweetContainer.length === 0 && retweetContainer.length === 0
 }
 
-function EarlyBreak (instance, resultContainers) {
+function EarlyBreak(instance, resultContainers) {
 	const [tweetContainer, retweetContainer] = resultContainers
 
 	// if there were no more results, it might just due to that most tweets are reply
@@ -87,7 +87,7 @@ function EarlyBreak (instance, resultContainers) {
 	return (duplicatedCount === tweetContainer.length)
 }
 
-function Save (UpdateDate = false) {
+function Save(UpdateDate = false) {
 	if (useRemoteStorage === 'true') {
 		console.log('Saving ...')
 	}
@@ -118,7 +118,7 @@ function Save (UpdateDate = false) {
 	}
 }
 
-async function UpdateUserSearchInfo (user) {
+async function UpdateUserSearchInfo(user) {
 	const account = user.id
 	let startDate = user.startDate
 
@@ -131,7 +131,7 @@ async function UpdateUserSearchInfo (user) {
 		return false
 	} else {
 		let updateCount = 1
-		const crawler = new TwitterCrawler(account, cookies, isVerbose)
+		const crawler = new TwitterCrawler(account, cookie, isVerbose)
 		while (FormatDate(startDate) < FormatDate(currentDate)) {
 			const nextDate = IncreaseDate(startDate, daySkip)
 			if (isVerbose) { console.log(`Fetching ${account}, Date = ${startDate} ~ ${nextDate}`) }
@@ -183,7 +183,7 @@ async function UpdateUserSearchInfo (user) {
 	return true
 }
 
-async function UpdateSearchInfoSync () {
+async function UpdateSearchInfoSync() {
 	for (const user of data) {
 		const hasChange = await UpdateUserSearchInfo(user)
 		//console.log(`${JSON.stringify(user)} -> ${hasChange}`)
@@ -194,14 +194,14 @@ async function UpdateSearchInfoSync () {
 	Save()
 }
 
-function UpdateSearchInfo () {
+function UpdateSearchInfo() {
 	const tasks = data.map(user => UpdateUserSearchInfo(user))
 	Promise.all(tasks).then(res => {
 		Save()
 	})
 }
 
-async function UpdateUserMainInfo (user) {
+async function UpdateUserMainInfo(user) {
 	const account = user.id
 	const startDate = user.startDate
 
@@ -215,7 +215,7 @@ async function UpdateUserMainInfo (user) {
 	const breakHandler = noEarlyBreak === 'true' ? NoEarlyBreak : EarlyBreak
 
 	try {
-		const [crawlResult, crawlRetweets] = await new TwitterCrawler(account, cookies, isVerbose, breakHandler).CrawlFromMainPage()
+		const [crawlResult, crawlRetweets] = await new TwitterCrawler(account, cookie, isVerbose, breakHandler).CrawlFromMainPage()
 
 		crawlResult.map(x => {
 			const isExist = containers[account].filter(ele => ele.tweetId === x.tweetId).length !== 0
@@ -236,14 +236,14 @@ async function UpdateUserMainInfo (user) {
 	}
 }
 
-async function UpdateMainInfoSync () {
+async function UpdateMainInfoSync() {
 	for (const user of data) {
 		await UpdateUserMainInfo(user)
 	}
 	Save()
 }
 
-function UpdateMainInfo () {
+function UpdateMainInfo() {
 	Promise.all(
 		data.map(async user => UpdateUserMainInfo(user))
 	)
@@ -251,27 +251,27 @@ function UpdateMainInfo () {
 		.finally(() => Save())
 }
 
-async function UpdateImage () {
+async function UpdateImage() {
 	const tasks = []
-	for(let i = 0; i < data.length; ++i) {
+	for (let i = 0; i < data.length; ++i) {
 		const user = data[i]
-		
+
 		fs.ensureDirSync(`${StoragePath}/${user.id}`)
 
 		const imgs = containers[user.id].reduce((acc, ele) => {
 			if (ele.hasPhoto) { return acc.concat([...ele.photos]) } else { return acc }
 		}, [])
 
-		for(let j = 0; j < imgs.length; ++j) {
+		for (let j = 0; j < imgs.length; ++j) {
 			const img = imgs[j]
 
 			// remove :orig when saving
 			const filename = path.join(StoragePath, user.id, img.replace(':orig', '').substring(img.lastIndexOf('/') + 1))
 			const key = path.join(user.id, img.replace(':orig', '').substring(img.lastIndexOf('/') + 1))
-			
+
 			if (useRemoteStorage === 'true' && remoteStorageCache.includes(filename)) {
 				continue
-			} 
+			}
 			else if (useRemoteStorage !== 'true') {
 				if ((useProcessedJson === 'true' && processed.includes(key)) || fs.existsSync(filename)) {
 					continue
@@ -291,7 +291,7 @@ async function UpdateImage () {
 	}, { concurrency: 10 })
 }
 
-function Clear () {
+function Clear() {
 	for (const user of data) {
 		if (user.createDate) {
 			user.startDate = user.createDate
@@ -301,7 +301,7 @@ function Clear () {
 	Save()
 }
 
-function ListData () {
+function ListData() {
 	const t = new Table()
 
 	data.forEach(d => {
@@ -315,7 +315,7 @@ function ListData () {
 	console.log(t.toString())
 }
 
-function UpdateData (updateData) {
+function UpdateData(updateData) {
 	if (updateData === 'NULL') {
 		console.log(`updateData = ${JSON.stringify(updateData)}`)
 		console.log('Wrong Format. Abort.')
@@ -377,7 +377,7 @@ if (require.main === module) {
 			process.exit()
 		}
 	}
-	
+
 	var corrupted = []
 	if (fs.existsSync(corruptedPath)) {
 		const rawCorrupted = fs.readFileSync(corruptedPath)
@@ -388,7 +388,7 @@ if (require.main === module) {
 			process.exit()
 		}
 	}
-	
+
 	if (fs.existsSync(processedPath)) {
 		const rawProcessed = fs.readFileSync(processedPath)
 		try {
@@ -409,7 +409,7 @@ if (require.main === module) {
 			process.exit()
 		}
 	}
-	
+
 	if (fs.existsSync(skipContainerPath)) {
 		const rawContainer = fs.readFileSync(skipContainerPath)
 		try {
