@@ -18,9 +18,15 @@ class TwitterTweet {
 }
 
 class TwitterCrawler {
-	constructor(account, credentials = null, verbose = true, EarlyBreakFunc = x => false, maxDepth = 1e9) {
+	constructor(account, cookie = null, verbose = true, EarlyBreakFunc = x => false, maxDepth = 1e9) {
 		this.account = account
-		this.credentials = Object.assign({ csrfToken: '', authToken: '' }, credentials)
+		this.cookie = cookie
+
+		this.csrfToken = cookie?.split(';')?.filter(x => x.includes('ct0='))?.[0]?.replace('ct0=', '')
+		if (!this.csrfToken) {
+			console.log('Detect invalid cookie! Might not be able to fetch search infos and mature contents.')
+		}
+
 		this.fetchResults = [] // container for fetched results
 		this.fetchRetweets = [] // container for fetched retweets for detect duplicate cases
 		this.EarlyBreak = EarlyBreakFunc
@@ -188,11 +194,11 @@ class TwitterCrawler {
 
 		const data = await this.FetchFromMainPage(depth)
 
-		const [rawTweetResults, rawRetweetResults] = this.ParseMainPageResult(data)
-
 		if (this.debug) {
 			console.log(JSON.stringify(data))
 		}
+
+		const [rawTweetResults, rawRetweetResults] = this.ParseMainPageResult(data)
 
 		// Sometimes twitter returns duplicated results from different api calls
 		// To deal with this, we filter the raw_results and leave only new TwitterTweets
@@ -236,23 +242,6 @@ class TwitterCrawler {
 		} else {
 			return [this.fetchResults, this.fetchRetweets]
 		}
-	}
-
-	ParseSearchResult(searchResults) {
-
-		const tweetContainer = []
-
-		const tweetEntries = Object.values(searchResults.globalObjects.tweets)
-		for (const tweetEntry of tweetEntries) {
-			const tweetId = tweetEntry.id_str
-			const content = tweetEntry.full_text
-			const timestamp = tweetEntry.created_at // e.g. Sun May 31 02:40:23 +0000 2020
-			const photos = this.GatherPhotos(tweetEntry)
-			const isSensitive = this.IsSensitiveContent(tweetEntry)
-			tweetContainer.push(new TwitterTweet(tweetId, photos, timestamp, content, isSensitive))
-		}
-
-		return [tweetContainer, []]
 	}
 
 	async FetchFromTweet(tweetId) {
@@ -302,9 +291,10 @@ class TwitterCrawler {
 		const LoginOptions = {
 			headers: {
 				'User-Agent': UserAgent,
-				'authorization': this.authorization,
-				'x-csrf-token': this.credentials.csrfToken,
-				'Cookie': `ct0=${this.credentials.csrfToken};auth_token=${this.credentials.authToken}`
+				authorization: this.authorization,
+				'x-twitter-auth-type': 'OAuth2Session',
+				'x-csrf-token': this.csrfToken,
+				'Cookie': this.cookie
 			},
 		}
 
@@ -313,12 +303,8 @@ class TwitterCrawler {
 		}
 
 		let options = LoginOptions
-		const isCredentialValid =
-			this.credentials?.csrfToken?.length == null ||
-			this.credentials?.authToken?.length == null ||
-			this.credentials?.authToken?.length == 0 ||
-			this.credentials?.csrfToken?.length == 0
-		if (isCredentialValid) {
+		const isCredentialValid = this.csrfToken?.length > 0 ?? false
+		if (!isCredentialValid) {
 			console.log('Detect user does not provide cookie, use incognito mode instead. (unable to fetch mature contents)')
 			options = noLoginOptions
 		}
@@ -327,8 +313,8 @@ class TwitterCrawler {
 	}
 
 	async CrawlFromAdvancedSearch(startDate, endDate, countPerRequest = 1000) {
-		await this.Preprocess()
 
+		await this.Preprocess()
 		if (this.restId === '') {
 			throw new Error('Error When Parsing Rest ID')
 		}
@@ -349,7 +335,6 @@ class TwitterCrawler {
 		if (this.debug) {
 			console.log(raw)
 		}
-
 		const data = JSON.parse(raw)
 
 		if (data.errors) {
@@ -377,6 +362,34 @@ class TwitterCrawler {
 		const retweetResults = rawRetweetResults.filter(x => isNotDuplicate(x, this.fetchRetweets))
 
 		return [results, retweetResults]
+	}
+
+	ParseSearchResult(searchResults) {
+
+		const tweetContainer = []
+		const tweetSearches = Object.values(searchResults.globalObjects.tweets)
+		for (const tweetSearch of tweetSearches) {
+			const tweetId = tweetSearch.id_str
+			const content = tweetSearch.full_text
+			const timestamp = tweetSearch.created_at // e.g. Sun May 31 02:40:23 +0000 2020
+
+			const photos = this.GatherPhotosFromTweetSearch(tweetSearch)
+			const isSensitive = this.IsSensitiveContentFromTweetSearch(tweetSearch)
+
+			const twitterTweet = new TwitterTweet(tweetId, photos, timestamp, content, isSensitive)
+			tweetContainer.push(twitterTweet)
+		}
+
+		// the result from search api are all tweets, no need to return retweet containers
+		return [tweetContainer, []]
+	}
+
+	GatherPhotosFromTweetSearch(tweetSearch) {
+		return tweetSearch.entities?.media?.map(x => `${x.media_url_https}:orig`) ?? []
+	}
+
+	IsSensitiveContentFromTweetSearch(tweetSearch) {
+		return tweetSearch.possibly_sensitive ?? false
 	}
 
 	IsTweetEntry(entry) {
@@ -454,11 +467,10 @@ class TwitterCrawler {
 // Tests
 if (require.main === module) {
 
-	const csrfToken = ''
-	const authToken = ''
+	const cookie = ''
 
 	const account = 'HitenKei'
-	const crawler = new TwitterCrawler(account, { csrfToken, authToken }, true, () => false, 1)
+	const crawler = new TwitterCrawler(account, cookie, true, () => false, 1)
 
 	// Crawl Test
 	crawler.CrawlFromMainPage().then(result => {
