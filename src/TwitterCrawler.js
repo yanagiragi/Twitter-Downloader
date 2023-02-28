@@ -155,21 +155,21 @@ class TwitterCrawler {
 	ParseMainPageResult(data) {
 
 		const entries = this.GetEntries(data)
-		const tweetEntries = entries.filter(this.IsTweet)
+		const tweetEntries = entries
+			.filter(this.IsTweetEntry)
+			.map(this.GetTweetsFromTweetEntries)
+			.flat()
 
 		const retweetContainer = []
 		const tweetContainer = []
-		for (const tweetEntry of tweetEntries) {
-			const tweet = this.GetTweetFromTweetEntry(tweetEntry)
+		for (const tweet of tweetEntries) {
 			const tweetId = tweet.rest_id
 			const content = tweet.legacy.full_text
 			const timestamp = tweet.legacy.created_at // e.g. Sun May 31 02:40:23 +0000 2020
 			const photos = this.GatherPhotos(tweet)
-			const isSensitive = this.IsSensitiveContent(tweetEntry)
-
+			const isSensitive = this.IsSensitiveContent(tweet)
 			const twitterTweet = new TwitterTweet(tweetId, photos, timestamp, content, isSensitive)
-
-			if (this.IsRetweet(tweetEntry)) {
+			if (this.IsRetweet(tweet)) {
 				retweetContainer.push(twitterTweet)
 			} else {
 				tweetContainer.push(twitterTweet)
@@ -267,13 +267,12 @@ class TwitterCrawler {
 		const raw = await resp.json()
 
 		const entries = raw?.data?.threaded_conversation_with_injections_v2?.instructions?.[0]?.entries
-		const entry = entries?.[0]
-		const tweet = this.GetTweetFromTweetEntry(entry)
+		const tweet = this.GetTweetsFromTweetEntries(entries)?.[0]
 
 		const content = tweet?.legacy?.full_text
 		const timestamp = tweet?.legacy?.created_at // e.g. Sun May 31 02:40:23 +0000 2020
 		const photos = this.GatherPhotos(tweet)
-		const isSensitive = this.IsSensitiveContent(entry)
+		const isSensitive = this.IsSensitiveContent(tweet)
 
 		return new TwitterTweet(tweetId, photos, timestamp, content, isSensitive)
 	}
@@ -380,23 +379,61 @@ class TwitterCrawler {
 		return [results, retweetResults]
 	}
 
+	IsTweetEntry(entry) {
+		const entryId = entry.entryId
+		const dealList = [
+			'homeConversation-',
+			'tweet-'
+		]
+		const whitelist = [
+			'whoToFollow-',
+			'cursor-top-',
+			'cursor-bottom-'
+		]
+
+		// only handle for two types for now
+		const isTweetEntry = dealList.some(x => entryId.includes(x))
+
+		if (entryId.includes('tombstone-')) {
+			console.log(`Detect mature content: ${entryId}. Skipped.`)
+		}
+		else if (!isTweetEntry && !whitelist.some(x => entryId.includes(x))) {
+			console.log(`Detect unhandled type: ${entryId}, ${JSON.stringify(entry)}`)
+		}
+
+		return isTweetEntry
+	}
+
+	GetTweetsFromTweetEntries(entry) {
+
+		// homeConversation-xxxxx-1-tweet-xxxxx
+		const type1 = [entry?.item].filter(Boolean)
+
+		// tweet-xxxxx
+		const type2 = [entry?.content].filter(x => x?.items == null && x)
+
+		// homeConversation-xxxxx-xxxxx
+		const type3 = [entry?.content?.items].filter(Boolean).flat().map(x => x.item)
+
+		const contents = [type1, type2, type3].flat()
+		const results = contents
+			.map(x => x.itemContent.tweet_results.result)
+			.map(x => x.__typename == 'TweetWithVisibilityResults' ? x.tweet : x)
+
+		return results
+	}
+
 	GetTweetFromTweetEntry(entry) {
 		const result = entry?.content?.itemContent?.tweet_results?.result
 		const tweet = result.__typename == 'TweetWithVisibilityResults' ? result.tweet : result
 		return tweet
 	}
 
-	IsRetweet(entry) {
-		const tweet = this.GetTweetFromTweetEntry(entry)
-		return Boolean(tweet.legacy.retweeted_status_result)
+	IsRetweet(tweet) {
+		return tweet.legacy.retweeted_status_result
 	}
 
-	IsTweet(entry) {
-		return entry?.content?.itemContent?.itemType === 'TimelineTweet'
-	}
-
-	IsSensitiveContent(entry) {
-		const tweet = this.GetTweetFromTweetEntry(entry)
+	IsSensitiveContent(tweet) {
 		return tweet?.legacy?.possibly_sensitive ?? false
 	}
 
