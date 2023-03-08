@@ -351,7 +351,7 @@ class TwitterCrawler {
 			throw new Error(`${errorMessage}`)
 		}
 
-		const [rawTweetResults, rawRetweetResults] = this.ParseSearchResult(data)
+		const [rawTweetResults, rawRetweetResults] = this.ParseSearchResult(this.restId, data)
 
 		// Sometimes twitter returns duplicated results from different api calls
 		// To deal with this, we filter the raw_results and leave only new TwitterTweets
@@ -364,11 +364,19 @@ class TwitterCrawler {
 		return [results, retweetResults]
 	}
 
-	ParseSearchResult(searchResults) {
+	ParseSearchResult(restId, searchResults) {
 
 		const tweetContainer = []
 		const tweetSearches = Object.values(searchResults.globalObjects.tweets)
+
 		for (const tweetSearch of tweetSearches) {
+
+			// filter tweets not create from user
+			// case: https://twitter.com/search?q=(from%3Ahechi_zou)%20until%3A2017-04-15%20since%3A2017-04-14&src=typed_query&f=top
+			if (tweetSearch.user_id != restId) {
+				continue
+			}
+
 			const tweetId = tweetSearch.id_str
 			const content = tweetSearch.full_text
 			const timestamp = tweetSearch.created_at // e.g. Sun May 31 02:40:23 +0000 2020

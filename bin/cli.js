@@ -143,7 +143,7 @@ async function UpdateUserSearchInfo(user) {
 					const isExist = containers[account].filter(ele => ele.tweetId === x.tweetId).length !== 0
 					if (!isExist) {
 						containers[account].push(x)
-						if (isVerbose) { console.log(`update ${x.tweetId} for ${user.id}`) }
+						if (isVerbose) { console.log(`add https://twitter.com/${account}/status/${x.tweetId} into ${user.id}`) }
 						// update with double weight when new tweet is found
 						updateCount += 2
 					}
