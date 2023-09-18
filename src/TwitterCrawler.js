@@ -133,16 +133,23 @@ class TwitterCrawler {
 		}
 
 		const resp = await fetch(uri, options)
-		const data = await resp.json()
-		this.bottomCursor = this.GetCursor(data)
+		const content = await resp.text()
+		try {
+			const data = JSON.parse(content)
+			this.bottomCursor = this.GetCursor(data)
 
-		/*if (typeof data.timeline === 'undefined') {
-			console.log(`Error When Request ${uri}, probably due to rate limit`)
-			console.log(data)
-			console.log(this.guestId)
-		}*/
-
-		return data
+			/*if (typeof data.timeline === 'undefined') {
+				console.log(`Error When Request ${uri}, probably due to rate limit`)
+				console.log(data)
+				console.log(this.guestId)
+			}*/
+			return data
+		} catch (error) {
+			if (content == 'Rate limit exceeded') {
+				throw new Error(content)
+			}
+			throw error
+		}
 	}
 
 	GatherPhotos(tweet) {
@@ -408,8 +415,10 @@ class TwitterCrawler {
 		]
 		const whitelist = [
 			'whoToFollow-',
+			'who-to-follow-',
 			'cursor-top-',
-			'cursor-bottom-'
+			'cursor-bottom-',
+			'profile-conversation-'
 		]
 
 		// only handle for two types for now

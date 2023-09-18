@@ -18,6 +18,7 @@ const noEarlyBreak = args.deep || 'false'
 const useRemoteStorage = args.useRemoteStorage || 'false'
 const useProcessedJson = args.useProcessJson || 'true'
 const useOneShot = args.oneShot === 'true' || false
+const useShuffle = args.shuffle === 'true' || false
 const cookie = args.cookie
 
 const isVerbose = (process.env.NODE_ENV !== 'production')
@@ -221,7 +222,7 @@ async function UpdateUserMainInfo(user) {
 			const isExist = containers[account].filter(ele => ele.tweetId === x.tweetId).length !== 0
 			if (!isExist) {
 				containers[account].push(x)
-				if (isVerbose) { console.log(`update ${x.tweetId}`) }
+				if (isVerbose) { console.log(`update https://twitter.com/${account}/status/${x.tweetId}`) }
 				updateCount += 1
 			}
 		})
@@ -368,6 +369,10 @@ if (require.main === module) {
 		const rawData = fs.readFileSync(dataPath)
 		try {
 			data = JSON.parse(rawData)
+			
+			if (useShuffle) {
+				data = data.sort(() => Math.random() - 0.5) // shuffle the array
+			}
 
 			if (mode !== 'list') {
 				data = data.filter(x => typeof x.ignore === 'undefined' && x.ignore !== true)
