@@ -2,8 +2,6 @@ const fs = require('fs-extra')
 const path = require('path')
 const { DateFormat, FormatDate, FormatTwitterTimestamp } = require('./utils')
 
-const isVerbose = (process.env.NODE_ENV !== 'production')
-
 function UpdateRemoteStorageCache () {
     console.error('Updating Remote Storage Cache ...')
     const res = fs.readdirSync(StoragePath)
@@ -118,9 +116,9 @@ async function LoadConfig (argv) {
         processed,
         containers,
         skipUrls,
-        originalData: [...data],
-        originalContainers: Object.assign({}, containers),
-        originalProcessed: [...processed]
+        originalData: JSON.parse(JSON.stringify(data)), // deep copy
+        originalContainers: JSON.parse(JSON.stringify(containers)), // deep copy
+        originalProcessed: JSON.parse(JSON.stringify(processed)) // deep copy
     }
 }
 
@@ -186,7 +184,7 @@ async function SaveConfig (argv, configs) {
         await fs.writeFile(configs.corruptedPath, JSON.stringify([], null, 4))
     }
 
-    if (isVerbose) {
+    if (argv.verbose) {
         console.error('Save Done.')
     }
 }
