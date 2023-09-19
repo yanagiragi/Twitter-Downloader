@@ -29,7 +29,6 @@ async function handler (argv) {
     }
 
     const configs = await LoadConfig(argv)
-
     ListData(configs)
 }
 

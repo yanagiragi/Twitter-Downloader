@@ -46,7 +46,7 @@ async function handler (argv) {
     const doneCount = result.filter(Boolean).length
     if (doneCount > 0) {
         console.error(`Done/Failed: ${doneCount}/${result.length - doneCount}`)
-        SaveConfig(argv, configs)
+        await SaveConfig(argv, configs)
     }
 }
 
@@ -55,7 +55,7 @@ async function UpdateImage (argv, configs) {
     for (let i = 0; i < configs.data.length; ++i) {
         const user = configs.data[i]
 
-        fs.ensureDirSync(`${configs.StoragePath}/${user.id}`)
+        await fs.ensureDir(`${configs.StoragePath}/${user.id}`)
 
         const imgs = configs.containers[user.id].reduce((acc, ele) => {
             if (ele.hasPhoto) { return acc.concat([...ele.photos]) } else { return acc }
@@ -70,7 +70,8 @@ async function UpdateImage (argv, configs) {
 
             if (!argv.useRemoteStorage) {
                 const existInCache = argv.useProcessedJson && configs.processed.includes(key)
-                if (existInCache || fs.existsSync(filename)) {
+                const existInDisk = await fs.exists(filename)
+                if (existInCache || existInDisk) {
                     continue
                 }
             }

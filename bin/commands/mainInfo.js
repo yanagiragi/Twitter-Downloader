@@ -66,7 +66,7 @@ async function handler (argv) {
         await UpdateMainInfo(argv, configs)
     }
 
-    SaveConfig(argv, configs)
+    await SaveConfig(argv, configs)
 }
 
 function NoEarlyBreak (instance, resultContainers) {
@@ -122,7 +122,7 @@ async function UpdateUserMainInfo (argv, configs, user) {
         })
 
         if (updateCount > argv.saveDuration) {
-            SaveContainer(configs)
+            await SaveContainer(argv, configs)
             updateCount = 0
         }
     } catch (err) {

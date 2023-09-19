@@ -38,5 +38,5 @@ async function handler (argv) {
         }
     }
 
-    SaveData(configs)
+    await SaveData(argv, configs)
 }

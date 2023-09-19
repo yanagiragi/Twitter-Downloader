@@ -74,7 +74,7 @@ async function handler (argv) {
         await UpdateSearchInfo(argv, configs)
     }
 
-    SaveConfig(argv, configs)
+    await SaveConfig(argv, configs)
 }
 
 
@@ -124,8 +124,8 @@ async function UpdateUserSearchInfo (argv, configs, user) {
 
                 if (updateCount > argv.saveDuration) {
                     user.startDate = startDate
-                    SaveData(configs)
-                    SaveContainer(configs)
+                    await SaveData(argv, configs)
+                    await SaveContainer(argv, configs)
                     console.error(`Save Snapshot: ${user.id} ${startDate}`)
                     updateCount = 0
                 }

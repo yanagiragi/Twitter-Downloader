@@ -50,7 +50,7 @@ async function handler (argv) {
     }
 
     UpdateData(arg, configs)
-    SaveData(configs)
+    await SaveData(argv, configs)
 }
 
 function UpdateData (arg, configs) {

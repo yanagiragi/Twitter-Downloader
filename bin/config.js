@@ -1,4 +1,3 @@
-// const fs = require('fs').promises
 const fs = require('fs-extra')
 const path = require('path')
 const { DateFormat, FormatDate, FormatTwitterTimestamp } = require('./utils')
@@ -40,12 +39,12 @@ async function LoadConfig (argv) {
 
     fs.ensureDirSync(StoragePath)
 
-    if (!fs.existsSync(dataPath)) {
+    if (await !fs.exists(dataPath)) {
         console.error(`${dataPath} does not exists. Abort.`)
         process.exit()
     }
 
-    const rawData = fs.readFileSync(dataPath)
+    const rawData = await fs.readFile(dataPath)
     try {
         data = JSON.parse(rawData)
         originalOrder = data.map(x => x.id)
@@ -64,7 +63,7 @@ async function LoadConfig (argv) {
 
     var corrupted = []
     if (fs.existsSync(corruptedPath)) {
-        const rawCorrupted = fs.readFileSync(corruptedPath)
+        const rawCorrupted = await fs.readFile(corruptedPath)
         try {
             corrupted = JSON.parse(rawCorrupted)
         } catch (err) {
@@ -74,7 +73,7 @@ async function LoadConfig (argv) {
     }
 
     if (fs.existsSync(processedPath)) {
-        const rawProcessed = fs.readFileSync(processedPath)
+        const rawProcessed = await fs.readFile(processedPath)
         try {
             processed = JSON.parse(rawProcessed)
             processed = processed.filter(x => !corrupted.includes(x))
@@ -85,7 +84,7 @@ async function LoadConfig (argv) {
     }
 
     if (fs.existsSync(containerPath)) {
-        const rawContainer = fs.readFileSync(containerPath)
+        const rawContainer = await fs.readFile(containerPath)
         try {
             containers = JSON.parse(rawContainer)
         } catch (err) {
@@ -95,7 +94,7 @@ async function LoadConfig (argv) {
     }
 
     if (fs.existsSync(skipContainerPath)) {
-        const rawContainer = fs.readFileSync(skipContainerPath)
+        const rawContainer = await fs.readFile(skipContainerPath)
         try {
             skipUrls = JSON.parse(rawContainer)
         } catch (err) {
@@ -125,7 +124,7 @@ async function LoadConfig (argv) {
     }
 }
 
-function SaveConfig (argv, configs) {
+async function SaveConfig (argv, configs) {
 
     if (argv == null) {
         console.error("Detect argv is null. Abort.")
@@ -163,28 +162,28 @@ function SaveConfig (argv, configs) {
         if (argv.verbose) {
             console.error(`Save ${configs.dataPath}.`)
         }
-        fs.writeFileSync(configs.dataPath, JSON.stringify(configs.data, null, 4))
+        await fs.writeFile(configs.dataPath, JSON.stringify(configs.data, null, 4))
     }
 
     if (JSON.stringify(configs.containers) != JSON.stringify(configs.originalContainers)) {
         if (argv.verbose) {
             console.error(`Save ${configs.containerPath}.`)
         }
-        fs.writeFileSync(configs.containerPath, JSON.stringify(configs.containers, null, 4))
+        await fs.writeFile(configs.containerPath, JSON.stringify(configs.containers, null, 4))
     }
 
     if (JSON.stringify(configs.processed) != JSON.stringify(configs.originalProcessed)) {
         if (argv.verbose) {
             console.error(`Save ${configs.processedPath}.`)
         }
-        fs.writeFileSync(configs.processedPath, JSON.stringify(configs.processed, null, 4))
+        await fs.writeFile(configs.processedPath, JSON.stringify(configs.processed, null, 4))
     }
 
     if (mode === 'image') {
         if (argv.verbose) {
             console.error(`Save ${configs.corruptedPath}.`)
         }
-        fs.writeFileSync(configs.corruptedPath, JSON.stringify([], null, 4))
+        await fs.writeFile(configs.corruptedPath, JSON.stringify([], null, 4))
     }
 
     if (isVerbose) {
@@ -192,20 +191,26 @@ function SaveConfig (argv, configs) {
     }
 }
 
-async function SaveData (configs) {
+async function SaveData (argv, configs) {
     if (configs == null) {
         console.error("Detect configs is null. Abort.")
         return
     }
-    fs.writeFileSync(configs.dataPath, JSON.stringify(configs.data, null, 4))
+    await fs.writeFile(configs.dataPath, JSON.stringify(configs.data, null, 4))
+    if (argv.verbose) {
+        console.error(`Save ${configs.dataPath}.`)
+    }
 }
 
-async function SaveContainer (configs) {
+async function SaveContainer (argv, configs) {
     if (configs == null) {
         console.error("Detect configs is null. Abort.")
         return
     }
-    fs.writeFileSync(configs.containerPath, JSON.stringify(configs.containers, null, 4))
+    await fs.writeFile(configs.containerPath, JSON.stringify(configs.containers, null, 4))
+    if (argv.verbose) {
+        console.error(`Save ${configs.containerPath}.`)
+    }
 }
 
 exports.LoadConfig = LoadConfig
