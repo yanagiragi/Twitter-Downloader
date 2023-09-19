@@ -164,24 +164,24 @@ async function SaveConfig (argv, configs) {
     }
 
     if (JSON.stringify(configs.containers) != JSON.stringify(configs.originalContainers)) {
+        await fs.writeFile(configs.containerPath, JSON.stringify(configs.containers, null, 4))
         if (argv.verbose) {
             console.error(`Save ${configs.containerPath}.`)
         }
-        await fs.writeFile(configs.containerPath, JSON.stringify(configs.containers, null, 4))
     }
 
     if (JSON.stringify(configs.processed) != JSON.stringify(configs.originalProcessed)) {
+        await fs.writeFile(configs.processedPath, JSON.stringify(configs.processed, null, 4))
         if (argv.verbose) {
             console.error(`Save ${configs.processedPath}.`)
         }
-        await fs.writeFile(configs.processedPath, JSON.stringify(configs.processed, null, 4))
     }
 
     if (mode === 'image') {
+        await fs.writeFile(configs.corruptedPath, JSON.stringify([], null, 4))
         if (argv.verbose) {
             console.error(`Save ${configs.corruptedPath}.`)
         }
-        await fs.writeFile(configs.corruptedPath, JSON.stringify([], null, 4))
     }
 
     if (argv.verbose) {

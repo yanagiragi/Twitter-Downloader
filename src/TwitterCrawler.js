@@ -42,7 +42,7 @@ class TwitterCrawler {
 		this.debug = false
 	}
 
-	async Preprocess() {
+	async Preprocess () {
 
 		// Get Authorization token, constant for now
 		this.authorization = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA'
@@ -58,7 +58,7 @@ class TwitterCrawler {
 		}
 	}
 
-	async GetGuestID() {
+	async GetGuestID () {
 		const uri = 'https://api.twitter.com/1.1/guest/activate.json'
 		const resp = await fetch(uri, {
 			method: 'POST',
@@ -81,7 +81,7 @@ class TwitterCrawler {
 		}
 	}
 
-	async GetRestID() {
+	async GetRestID () {
 		const uri = `https://api.twitter.com/graphql/-xfUfZsnR_zqjFd-IfrN5A/UserByScreenName?variables=%7B%22screen_name%22%3A%22${this.account}%22%2C%22withHighlightedLabel%22%3Atrue%7D`
 		const options = {
 			headers: {
@@ -105,7 +105,7 @@ class TwitterCrawler {
 		}
 	}
 
-	async FetchFromMainPage(position) {
+	async FetchFromMainPage (position) {
 
 		const query = `variables={
 			"userId":${this.restId},
@@ -145,14 +145,14 @@ class TwitterCrawler {
 			}*/
 			return data
 		} catch (error) {
-			if (content == 'Rate limit exceeded') {
+			if (content.toString().trim() == 'Rate limit exceeded') {
 				throw new Error(content)
 			}
 			throw error
 		}
 	}
 
-	GatherPhotos(tweet) {
+	GatherPhotos (tweet) {
 		const photos = []
 		const entryMedia = tweet?.legacy?.entities?.media
 		if (entryMedia) {
@@ -165,7 +165,7 @@ class TwitterCrawler {
 		return photos
 	}
 
-	ParseMainPageResult(data) {
+	ParseMainPageResult (data) {
 
 		const entries = this.GetEntries(data)
 		const tweetEntries = entries
@@ -192,7 +192,7 @@ class TwitterCrawler {
 		return [tweetContainer, retweetContainer]
 	}
 
-	async CrawlFromMainPage(depth = 0) {
+	async CrawlFromMainPage (depth = 0) {
 		await this.Preprocess()
 
 		if (this.restId === '') {
@@ -251,7 +251,7 @@ class TwitterCrawler {
 		}
 	}
 
-	async FetchFromTweet(tweetId) {
+	async FetchFromTweet (tweetId) {
 
 		await this.Preprocess()
 
@@ -273,7 +273,7 @@ class TwitterCrawler {
 		return new TwitterTweet(tweetId, photos, timestamp, content, isSensitive)
 	}
 
-	GetOptions(useNoLogin = false) {
+	GetOptions (useNoLogin = false) {
 		const noLoginOptions = {
 			headers: {
 				'User-Agent': UserAgent,
@@ -319,7 +319,7 @@ class TwitterCrawler {
 		return options
 	}
 
-	async CrawlFromAdvancedSearch(startDate, endDate, countPerRequest = 1000) {
+	async CrawlFromAdvancedSearch (startDate, endDate, countPerRequest = 1000) {
 
 		await this.Preprocess()
 		if (this.restId === '') {
@@ -371,7 +371,7 @@ class TwitterCrawler {
 		return [results, retweetResults]
 	}
 
-	ParseSearchResult(restId, searchResults) {
+	ParseSearchResult (restId, searchResults) {
 
 		const tweetContainer = []
 		const tweetSearches = Object.values(searchResults.globalObjects.tweets)
@@ -399,15 +399,15 @@ class TwitterCrawler {
 		return [tweetContainer, []]
 	}
 
-	GatherPhotosFromTweetSearch(tweetSearch) {
+	GatherPhotosFromTweetSearch (tweetSearch) {
 		return tweetSearch.entities?.media?.map(x => `${x.media_url_https}:orig`) ?? []
 	}
 
-	IsSensitiveContentFromTweetSearch(tweetSearch) {
+	IsSensitiveContentFromTweetSearch (tweetSearch) {
 		return tweetSearch.possibly_sensitive ?? false
 	}
 
-	IsTweetEntry(entry) {
+	IsTweetEntry (entry) {
 		const entryId = entry.entryId
 		const dealList = [
 			'homeConversation-',
@@ -434,7 +434,7 @@ class TwitterCrawler {
 		return isTweetEntry
 	}
 
-	GetTweetsFromTweetEntries(entry) {
+	GetTweetsFromTweetEntries (entry) {
 
 		// homeConversation-xxxxx-1-tweet-xxxxx
 		const type1 = [entry?.item].filter(Boolean)
@@ -453,21 +453,21 @@ class TwitterCrawler {
 		return results
 	}
 
-	GetTweetFromTweetEntry(entry) {
+	GetTweetFromTweetEntry (entry) {
 		const result = entry?.content?.itemContent?.tweet_results?.result
 		const tweet = result.__typename == 'TweetWithVisibilityResults' ? result.tweet : result
 		return tweet
 	}
 
-	IsRetweet(tweet) {
+	IsRetweet (tweet) {
 		return tweet.legacy.retweeted_status_result
 	}
 
-	IsSensitiveContent(tweet) {
+	IsSensitiveContent (tweet) {
 		return tweet?.legacy?.possibly_sensitive ?? false
 	}
 
-	GetCursor(data) {
+	GetCursor (data) {
 		const selector = entry =>
 			entry?.content?.entryType === 'TimelineTimelineCursor' && entry?.content?.cursorType === 'Bottom'
 
@@ -476,7 +476,7 @@ class TwitterCrawler {
 		return cursors?.[0]?.content?.value
 	}
 
-	GetEntries(data) {
+	GetEntries (data) {
 		return data.data.user.result.timeline.timeline.instructions.filter(x => x.type === 'TimelineAddEntries')[0].entries
 	}
 }

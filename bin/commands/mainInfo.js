@@ -127,7 +127,9 @@ async function UpdateUserMainInfo (argv, configs, user) {
         }
     } catch (err) {
         console.error(`Error occurs on ${account}: ${err.message}`)
-        console.error(err.stack)
+        if (err.message.toString().trim() != 'Rate limit exceeded') {
+            console.error(err.stack)
+        }
     }
 }
 

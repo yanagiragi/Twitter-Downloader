@@ -44,8 +44,9 @@ async function handler (argv) {
 
     const result = await UpdateImage(argv, configs)
     const doneCount = result.filter(Boolean).length
+
+    console.error(`Done/Failed: ${doneCount}/${result.length - doneCount}`)
     if (doneCount > 0) {
-        console.error(`Done/Failed: ${doneCount}/${result.length - doneCount}`)
         await SaveConfig(argv, configs)
     }
 }
@@ -99,7 +100,7 @@ async function DownloadImage (url, filename, key, configs) {
     const result = await FetchImage(url, filename)
     if (result) {
         configs.processed.push(key)
-        console.error(`Successfully Download ${url} as ${filename}`)
+        console.log(`Successfully Download ${url} as ${filename}`)
     }
     return result
 }
