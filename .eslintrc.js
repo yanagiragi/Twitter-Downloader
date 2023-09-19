@@ -9,7 +9,7 @@ module.exports = {
 		"ecmaVersion": 12
 	},
 	"rules": {
-		"indent": ["error", "tab", {"SwitchCase": 1}],
+		"indent": ["error", "space", { "SwitchCase": 1 }],
 		"no-tabs": 0,
 		"quotes": ["error", "single"],
 		"semi": ["error", "never"],

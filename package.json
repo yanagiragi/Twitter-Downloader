@@ -1,6 +1,6 @@
 {
   "name": "TwitterPictureDownloader",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "",
   "bin": {
     "yrTwitter": "bin/cli.js"
@@ -12,7 +12,8 @@
     "fs-extra": "^8.0.0",
     "minimist": "^1.2.6",
     "node-fetch": "^2.6.7",
-    "p-map": "^4.0.0"
+    "p-map": "^4.0.0",
+    "yargs": "^17.7.2"
   },
   "devDependencies": {
     "eslint": "^7.32.0",
