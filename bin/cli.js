@@ -35,6 +35,7 @@ const currentDate = DateFormat(new Date())
 const remoteStorageCache = UpdateRemoteStorageCache()
 
 var data = []
+var originalOrder = []
 var processed = []
 var containers = {}
 var skipUrls = []
@@ -97,6 +98,10 @@ function Save(UpdateDate = false) {
 		data.map(x => {
 			x.startDate = currentDate
 		})
+	}
+
+	if (useShuffle) {
+		data.sort((a, b) => originalOrder.indexOf(a.id) - originalOrder.indexOf(b.id))
 	}
 
 	for (const key in containers) {
@@ -369,7 +374,8 @@ if (require.main === module) {
 		const rawData = fs.readFileSync(dataPath)
 		try {
 			data = JSON.parse(rawData)
-			
+			originalOrder = data.map(x => x.id)
+
 			if (useShuffle) {
 				data = data.sort(() => Math.random() - 0.5) // shuffle the array
 			}
