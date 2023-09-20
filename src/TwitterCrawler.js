@@ -106,7 +106,7 @@ class TwitterCrawler {
 		}
 	}
 
-	async FetchFromMainPage (position) {
+	async FetchFromMainPage () {
 
 		const query = `variables={
 			"userId":${this.restId},
@@ -144,12 +144,13 @@ class TwitterCrawler {
 				console.log(data)
 				console.log(this.guestId)
 			}*/
+
 			return data
 		} catch (error) {
 			if (content.toString().trim() == 'Rate limit exceeded') {
-				throw new Error(content)
+				return { error: "Rate limit exceeded", cursor: this.bottomCursor }
 			}
-			throw error
+			return { error: "Rate limit exceeded", cursor: this.bottomCursor }
 		}
 	}
 
@@ -188,18 +189,27 @@ class TwitterCrawler {
 			.map(this.GetTweetsFromTweetEntries)
 			.flat()
 
-		const retweetContainer = []
-		const tweetContainer = []
-		for (const tweet of tweetEntries) {
+		const getTweetResultFromTweet = tweet => {
 			const tweetId = tweet.rest_id
 			const content = tweet.legacy.full_text
 			const timestamp = tweet.legacy.created_at // e.g. Sun May 31 02:40:23 +0000 2020
 			const photos = this.GatherPhotos(tweet)
 			const videos = this.GatherVideos(tweet)
 			const isSensitive = this.IsSensitiveContent(tweet)
-			const twitterTweet = new TwitterTweet(tweetId, photos, timestamp, content, isSensitive, videos)
+			return new TwitterTweet(tweetId, photos, timestamp, content, isSensitive, videos)
+		}
 
+		const retweetContainer = []
+		const tweetContainer = []
+		for (const tweet of tweetEntries) {
+			const twitterTweet = getTweetResultFromTweet(tweet)
 			if (this.IsRetweet(tweet)) {
+				// if a tweet retweets previous tweet from himself, also collects it
+				if (this.IsRetweetSelf(tweet)) {
+					const newTwitterTweet = getTweetResultFromTweet(tweet.legacy.retweeted_status_result.result)
+					tweetContainer.push(newTwitterTweet)
+					console.error(`Collects https://twitter.com/${this.account}/status/${newTwitterTweet.tweetId} from https://twitter.com/${this.account}/status/${twitterTweet.tweetId}`)
+				}
 				retweetContainer.push(twitterTweet)
 			} else {
 				tweetContainer.push(twitterTweet)
@@ -216,7 +226,12 @@ class TwitterCrawler {
 			throw new Error('Error When Parsing Rest ID')
 		}
 
-		const data = await this.FetchFromMainPage(depth)
+		const data = await this.FetchFromMainPage()
+
+		if (data?.error) {
+			console.error(`Detect error when fetch tweets of ${this.account}, Error = ${JSON.stringify(data)}`)
+			return [this.fetchResults, this.fetchRetweets]
+		}
 
 		if (this.debug) {
 			console.log(JSON.stringify(data))
@@ -238,11 +253,11 @@ class TwitterCrawler {
 
 		// pass params to callback provided from cli.js
 		// the purpose is for caching the results for early breaking the recursively crawls
-		const shouldBreak = this.EarlyBreak(this, [results, retweetResults])
+		const shouldBreak = this.EarlyBreak(this, [rawTweetResults, rawRetweetResults])
 
 		// eslint-disable-next-line no-trailing-spaces
 		if (this.verbose) {
-			console.log(`[${this.account}.CrawlFromMainPage] (${this.fetchResults.length}) <${results.length}, ${rawTweetResults.length}, ${retweetResults.length}, ${rawRetweetResults.length}>, depth = ${depth}, shouldBreak = ${shouldBreak}`)
+			console.log(`[${this.account}.CrawlFromMainPage] (${this.fetchResults.length}) <${results.length}, ${rawTweetResults.length}, ${retweetResults.length}, ${rawRetweetResults.length}>, depth = ${depth}, shouldBreak = ${shouldBreak}, cursor = ${this.bottomCursor}`)
 		}
 
 		if (this.debug) {
@@ -480,6 +495,10 @@ class TwitterCrawler {
 		return tweet.legacy.retweeted_status_result
 	}
 
+	IsRetweetSelf (tweet) {
+		return tweet.legacy.retweeted_status_result?.result?.legacy?.user_id_str == this.restId
+	}
+
 	IsSensitiveContent (tweet) {
 		return tweet?.legacy?.possibly_sensitive ?? false
 	}
@@ -494,10 +513,14 @@ class TwitterCrawler {
 	}
 
 	GetEntries (data) {
-		return [
-			data.data.user.result.timeline.timeline.instructions.filter(x => x.type === 'TimelineAddEntries')[0].entries,
-			data.data.user.result.timeline.timeline.instructions.filter(x => x.type === 'TimelinePinEntry')[0].entry // deal tweets that are pinned
-		].flat()
+		const entries = data.data.user.result.timeline.timeline.instructions.filter(x => x.type === 'TimelineAddEntries')[0].entries
+		if (!this.bottomCursor) {
+			return [
+				entries,
+				data.data.user.result.timeline.timeline.instructions.filter(x => x.type === 'TimelinePinEntry')[0].entry // deal tweets that are pinned
+			].flat()
+		}
+		return entries
 	}
 }
 

@@ -22,6 +22,11 @@ function builder (yargs) {
             description: 'Fetch all tweets in waterfall until there is no tweets. Set to false implies to fetch until there is no new tweets',
             type: 'boolean',
         })
+        .option('deepTolerance', {
+            default: 1,
+            description: '',
+            type: 'number',
+        })
         .option('useRemoteStorage', {
             default: false,
             description: 'Affects default path when data stores. Mount remote storage to `Storage_Remote` folder before enable this flag',
@@ -46,6 +51,11 @@ function builder (yargs) {
             default: 1e9,
             description: 'Max depth to crawl in main page waterfall',
             type: 'integer',
+        })
+        .option('overrideCursor', {
+            default: null,
+            description: 'Override initial bottom cursor of twitter crawler',
+            type: 'string',
         })
         .option('overrideData', {
             default: null,
@@ -131,12 +141,29 @@ async function UpdateUserMainInfo (argv, configs, user) {
     let updateCount = 1
     if (argv.verbose) { console.error(`Fetching ${account} MainInfo`) }
 
+    let earlyBreakCount = 0
     const breakHandler = argv.deep
-        ? (instance, resultContainers) => NoEarlyBreak(instance, resultContainers)
+        ? (instance, resultContainers) => {
+            console.log(JSON.stringify(resultContainers))
+            if (NoEarlyBreak(instance, resultContainers)) {
+                earlyBreakCount += 1
+                console.error(`Detect can break in deep mode: ${earlyBreakCount}/${argv.deepTolerance}`)
+            }
+            if (earlyBreakCount >= argv.deepTolerance) {
+                return true
+            }
+            return false
+        }
         : (instance, resultContainers) => EarlyBreak(instance, resultContainers, configs)
 
     try {
-        const [crawlResult, crawlRetweets] = await new TwitterCrawler(account, argv.cookie, argv.verbose, breakHandler, argv.maxDepth).CrawlFromMainPage()
+        const crawler = new TwitterCrawler(account, argv.cookie, argv.verbose, breakHandler, argv.maxDepth)
+
+        if (argv.overrideCursor) {
+            crawler.bottomCursor = argv.overrideCursor
+        }
+
+        const [crawlResult, crawlRetweets] = await crawler.CrawlFromMainPage()
 
         crawlResult.map(x => {
             const isExist = configs.containers[account].filter(ele => ele.tweetId === x.tweetId).length !== 0
@@ -153,9 +180,7 @@ async function UpdateUserMainInfo (argv, configs, user) {
         }
     } catch (err) {
         console.error(`Error occurs on ${account}: ${err.message}`)
-        if (err.message.toString().trim() != 'Rate limit exceeded') {
-            console.error(err.stack)
-        }
+        console.error(err.stack)
     }
 }
 
