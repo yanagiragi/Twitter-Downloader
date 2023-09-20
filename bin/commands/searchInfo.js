@@ -48,6 +48,18 @@ function builder (yargs) {
             default: 50,
             type: 'integer',
         })
+        .option('overrideData', {
+            default: '',
+            type: 'string',
+        })
+        .option('overrideConfig', {
+            default: '',
+            type: 'string',
+        })
+        .option('outputConfig', {
+            default: false,
+            type: 'boolean',
+        })
         .option('cookie', {
             demandOption: true,
             type: 'string',

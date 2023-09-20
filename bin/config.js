@@ -14,6 +14,12 @@ function UpdateRemoteStorageCache () {
 }
 
 async function LoadConfig (argv) {
+
+    if (argv.overrideConfig) {
+        const configs = JSON.parse(argv.overrideConfig)
+        return configs
+    }
+
     const useRemoteStorage = argv.useRemoteStorage
     const useShuffle = argv.shuffle
     const mode = argv._
@@ -35,14 +41,16 @@ async function LoadConfig (argv) {
     let containers = {}
     let skipUrls = []
 
-    fs.ensureDirSync(StoragePath)
+    if (!argv.outputConfig) {
+        fs.ensureDirSync(StoragePath)
+    }
 
-    if (await !fs.exists(dataPath)) {
+    if (!argv.overrideData && await !fs.exists(dataPath)) {
         console.error(`${dataPath} does not exists. Abort.`)
         process.exit()
     }
 
-    const rawData = await fs.readFile(dataPath)
+    const rawData = argv.overrideData ?? await fs.readFile(dataPath)
     try {
         data = JSON.parse(rawData)
         originalOrder = data.map(x => x.id)
@@ -55,7 +63,7 @@ async function LoadConfig (argv) {
             data = data.filter(x => typeof x.ignore === 'undefined' && x.ignore !== true)
         }
     } catch (err) {
-        console.error(`Failed Parsing ${dataPath}, error = ${err}`)
+        console.error(`Failed Parsing ${(argv.overrideData ?? dataPath)}, error = ${err}`)
         process.exit()
     }
 
@@ -154,6 +162,11 @@ async function SaveConfig (argv, configs) {
             x.timestamp = FormatTwitterTimestamp(x.timestamp)
         })
         ele.sort((a, b) => FormatDate(a.timestamp) < FormatDate(b.timestamp) ? 1 : -1)
+    }
+
+    if (argv.outputConfig) {
+        console.log(JSON.stringify(configs))
+        return
     }
 
     if (JSON.stringify(configs.data) != JSON.stringify(configs.originalData)) {

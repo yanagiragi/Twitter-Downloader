@@ -11,39 +11,65 @@ module.exports = {
 /** @param {import('yargs').Argv} yargs */
 function builder (yargs) {
     yargs
-        .usage('Fetch tweets from main page waterfall')
+        .usage('\nCommand Description: Fetch tweets from main page waterfall')
         .option('sync', {
             default: false,
+            description: 'Fetch next tweet only if previous tweet is completed',
             type: 'boolean',
         })
         .option('deep', {
             default: false,
+            description: 'Fetch all tweets in waterfall until there is no tweets. Set to false implies to fetch until there is no new tweets',
             type: 'boolean',
         })
         .option('useRemoteStorage', {
             default: false,
+            description: 'Affects default path when data stores. Mount remote storage to `Storage_Remote` folder before enable this flag',
             type: 'boolean',
         })
         .option('shuffle', {
             default: false,
+            description: 'Shuffle the input before dispatch crawls. Does not affect the order saved in data.json',
             type: 'boolean',
         })
         .option('verbose', {
             default: true,
+            description: 'Enable detailed outputs',
             type: 'boolean',
         })
         .option('saveDuration', {
             default: 50,
+            description: 'How often to save container.json after numbers of tweet is fetched (In case there is a mis-catched error)',
             type: 'integer',
         })
         .option('maxDepth', {
             default: 1e9,
+            description: 'Max depth to crawl in main page waterfall',
             type: 'integer',
+        })
+        .option('overrideData', {
+            default: null,
+            description: 'An option to override data.json by args',
+            type: 'string',
+        })
+        .option('overrideConfig', {
+            default: null,
+            description: 'An option to override whole config by args',
+            type: 'string',
+        })
+        .option('outputConfig', {
+            default: false,
+            description: 'An option to output whole config instead saving it to local files',
+            type: 'boolean',
         })
         .option('cookie', {
             demandOption: true,
+            description: 'Cookie of active twitter session',
             type: 'string',
         })
+        .alias('d', 'deep')
+        .alias('s', 'sync')
+        .alias('c', 'cookie')
 }
 
 /**
@@ -105,7 +131,7 @@ async function UpdateUserMainInfo (argv, configs, user) {
     let updateCount = 1
     if (argv.verbose) { console.error(`Fetching ${account} MainInfo`) }
 
-    const breakHandler = configs.deep
+    const breakHandler = argv.deep
         ? (instance, resultContainers) => NoEarlyBreak(instance, resultContainers)
         : (instance, resultContainers) => EarlyBreak(instance, resultContainers, configs)
 
