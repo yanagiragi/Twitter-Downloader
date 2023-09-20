@@ -7,13 +7,14 @@ const UserAgent = 'User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:84.0) 
 const defaulfCsrfToken = 'a1f272646de62b7f37cf2104814fceab'
 
 class TwitterTweet {
-	constructor(tweetId, photos, timestamp, content, isSensitive) {
+	constructor(tweetId, photos, timestamp, content, isSensitive, videos = []) {
 		this.content = content
 		this.tweetId = tweetId
 		this.photos = photos
 		this.timestamp = timestamp
 		this.hasPhoto = photos.length > 0
 		this.isSensitive = isSensitive
+		this.videos = videos
 	}
 }
 
@@ -165,6 +166,20 @@ class TwitterCrawler {
 		return photos
 	}
 
+	GatherVideos (tweet) {
+		const videos = []
+		const entryMedia = tweet?.legacy?.extended_entities?.media
+		if (entryMedia) {
+			for (const media of entryMedia) {
+				if (media?.type == 'video') {
+					for (const variant of media?.video_info?.variants)
+						videos.push(variant)
+				}
+			}
+		}
+		return videos
+	}
+
 	ParseMainPageResult (data) {
 
 		const entries = this.GetEntries(data)
@@ -180,8 +195,10 @@ class TwitterCrawler {
 			const content = tweet.legacy.full_text
 			const timestamp = tweet.legacy.created_at // e.g. Sun May 31 02:40:23 +0000 2020
 			const photos = this.GatherPhotos(tweet)
+			const videos = this.GatherVideos(tweet)
 			const isSensitive = this.IsSensitiveContent(tweet)
-			const twitterTweet = new TwitterTweet(tweetId, photos, timestamp, content, isSensitive)
+			const twitterTweet = new TwitterTweet(tweetId, photos, timestamp, content, isSensitive, videos)
+
 			if (this.IsRetweet(tweet)) {
 				retweetContainer.push(twitterTweet)
 			} else {
@@ -477,7 +494,10 @@ class TwitterCrawler {
 	}
 
 	GetEntries (data) {
-		return data.data.user.result.timeline.timeline.instructions.filter(x => x.type === 'TimelineAddEntries')[0].entries
+		return [
+			data.data.user.result.timeline.timeline.instructions.filter(x => x.type === 'TimelineAddEntries')[0].entries,
+			data.data.user.result.timeline.timeline.instructions.filter(x => x.type === 'TimelinePinEntry')[0].entry // deal tweets that are pinned
+		].flat()
 	}
 }
 
