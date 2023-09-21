@@ -25,7 +25,7 @@ class TwitterCrawler {
 
 		this.csrfToken = cookie?.split(';')?.filter(x => x.includes('ct0='))?.[0]?.replace('ct0=', '')
 		if (!this.csrfToken) {
-			console.log('Detect invalid cookie! Might not be able to fetch search infos and mature contents.')
+			console.error('Detect invalid cookie! Might not be able to fetch search infos and mature contents.')
 		}
 
 		this.fetchResults = [] // container for fetched results
@@ -35,6 +35,9 @@ class TwitterCrawler {
 		this.verbose = verbose
 		this.earlyBreakCount = 0
 		this.displayFetchedTweets = false
+
+		this.saveDuration = 50
+		this.saveSnapShot = null
 
 		this.bottomCursor = '' // stay null for the first time
 		this.guestId = '' // update later
@@ -74,7 +77,7 @@ class TwitterCrawler {
 		const data = await resp.text()
 
 		if (this.isDebug) {
-			console.log(data)
+			console.error(data)
 		}
 
 		try {
@@ -132,7 +135,7 @@ class TwitterCrawler {
 		const options = this.GetOptions()
 
 		if (this.debug) {
-			console.log(uri, options)
+			console.error(uri, options)
 		}
 
 		const resp = await fetch(uri, options)
@@ -140,13 +143,6 @@ class TwitterCrawler {
 		try {
 			const data = JSON.parse(content)
 			this.bottomCursor = this.GetCursor(data)
-
-			/*if (typeof data.timeline === 'undefined') {
-				console.log(`Error When Request ${uri}, probably due to rate limit`)
-				console.log(data)
-				console.log(this.guestId)
-			}*/
-
 			return data
 		} catch (error) {
 			if (content.toString().trim() == 'Rate limit exceeded') {
@@ -221,7 +217,7 @@ class TwitterCrawler {
 		return [tweetContainer, retweetContainer]
 	}
 
-	async CrawlFromMainPage (depth = 0) {
+	async CrawlFromMainPage (depth = 0, updateCount = 0) {
 		await this.Preprocess()
 
 		if (this.restId === '') {
@@ -236,7 +232,7 @@ class TwitterCrawler {
 		}
 
 		if (this.debug) {
-			console.log(JSON.stringify(data))
+			console.error(JSON.stringify(data))
 		}
 
 		const [rawTweetResults, rawRetweetResults] = this.ParseMainPageResult(data)
@@ -259,7 +255,7 @@ class TwitterCrawler {
 
 		// eslint-disable-next-line no-trailing-spaces
 		if (this.verbose) {
-			console.log(`[${this.account}.CrawlFromMainPage] (${this.fetchResults.length}) <${results.length}, ${rawTweetResults.length}, ${retweetResults.length}, ${rawRetweetResults.length}>, depth = ${depth}, shouldBreak = ${shouldBreak}, cursor = ${this.bottomCursor}`)
+			console.error(`[${this.account}.CrawlFromMainPage] (${this.fetchResults.length}) <${results.length}, ${rawTweetResults.length}, ${retweetResults.length}, ${rawRetweetResults.length}>, depth = ${depth}, shouldBreak = ${shouldBreak}, cursor = ${this.bottomCursor}`)
 		}
 
 		if (this.debug || this.displayFetchedTweets) {
@@ -267,7 +263,15 @@ class TwitterCrawler {
 		}
 
 		if (shouldBreak === false && depth <= this.maxDepth) {
-			return this.CrawlFromMainPage(depth + 1)
+			updateCount += rawTweetResults.length
+			if (updateCount > this.saveDuration && this.saveSnapShot) {
+				if (this.verbose) {
+					console.error(`Save Snapshot due to updateCount (${updateCount}) > saveDuration (${this.saveDuration})`)
+				}
+				await this.saveSnapShot()
+				updateCount = 0
+			}
+			return this.CrawlFromMainPage(depth + 1, updateCount)
 		} else {
 			return [this.fetchResults, this.fetchRetweets]
 		}
@@ -353,7 +357,7 @@ class TwitterCrawler {
 		let options = LoginOptions
 		const isCredentialValid = this.csrfToken?.length > 0 ?? false
 		if (!isCredentialValid) {
-			console.log('Detect user does not provide cookie, use incognito mode instead. (unable to fetch mature contents)')
+			console.error('Detect user does not provide cookie, use incognito mode instead. (unable to fetch mature contents)')
 			options = noLoginOptions
 		}
 
@@ -374,14 +378,14 @@ class TwitterCrawler {
 		let options = this.GetOptions()
 
 		if (this.debug) {
-			console.log(uri, options)
+			console.error(uri, options)
 		}
 
 		const resp = await fetch(uri, options)
 		const raw = await resp.text()
 
 		if (this.debug) {
-			console.log(raw)
+			console.error(raw)
 		}
 		const data = JSON.parse(raw)
 
@@ -433,7 +437,7 @@ class TwitterCrawler {
 		}
 	}
 
-	async CrawlFromMedia (depth = 0) {
+	async CrawlFromMedia (depth = 0, updateCount = 0) {
 		await this.Preprocess()
 
 		if (this.restId === '') {
@@ -448,7 +452,7 @@ class TwitterCrawler {
 		}
 
 		if (this.debug) {
-			console.log(JSON.stringify(data))
+			console.error(JSON.stringify(data))
 		}
 
 		const [rawTweetResults, rawRetweetResults] = this.ParseMainPageResult(data)
@@ -471,7 +475,7 @@ class TwitterCrawler {
 
 		// eslint-disable-next-line no-trailing-spaces
 		if (this.verbose) {
-			console.log(`[${this.account}.CrawlFromMedia] (${this.fetchResults.length}) <${results.length}, ${rawTweetResults.length}, ${retweetResults.length}, ${rawRetweetResults.length}>, depth = ${depth}, shouldBreak = ${shouldBreak}, cursor = ${this.bottomCursor}`)
+			console.error(`[${this.account}.CrawlFromMedia] (${this.fetchResults.length}) <${results.length}, ${rawTweetResults.length}, ${retweetResults.length}, ${rawRetweetResults.length}>, depth = ${depth}, shouldBreak = ${shouldBreak}, cursor = ${this.bottomCursor}`)
 		}
 
 		if (this.debug || this.displayFetchedTweets) {
@@ -479,7 +483,15 @@ class TwitterCrawler {
 		}
 
 		if (shouldBreak === false && depth <= this.maxDepth) {
-			return this.CrawlFromMedia(depth + 1)
+			updateCount += rawTweetResults.length
+			if (updateCount > this.saveDuration && this.saveSnapShot) {
+				if (this.verbose) {
+					console.error(`Save Snapshot due to updateCount (${updateCount}) > saveDuration (${this.saveDuration})`)
+				}
+				await this.saveSnapShot()
+				updateCount = 0
+			}
+			return this.CrawlFromMedia(depth + 1, updateCount)
 		} else {
 			return [this.fetchResults, this.fetchRetweets]
 		}
@@ -539,10 +551,10 @@ class TwitterCrawler {
 		const isTweetEntry = dealList.some(x => entryId.includes(x))
 
 		if (entryId.includes('tombstone-')) {
-			console.log(`Detect mature content: ${entryId}. Skipped.`)
+			console.error(`Detect mature content: ${entryId}. Skipped.`)
 		}
 		else if (!isTweetEntry && !whitelist.some(x => entryId.includes(x))) {
-			console.log(`Detect unhandled type: ${entryId}, ${JSON.stringify(entry)}`)
+			console.error(`Detect unhandled type: ${entryId}, ${JSON.stringify(entry)}`)
 		}
 
 		return isTweetEntry

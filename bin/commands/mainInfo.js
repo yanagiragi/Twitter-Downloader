@@ -143,13 +143,13 @@ async function UpdateUserMainInfo (argv, configs, user) {
         configs.containers[account] = []
     }
 
-    let updateCount = 1
-    if (argv.verbose) { console.error(`Fetching ${account} MainInfo`) }
+    if (argv.verbose) {
+        console.error(`Fetching ${account} MainInfo`)
+    }
 
     let earlyBreakCount = 0
     const breakHandler = argv.deep
         ? (instance, resultContainers) => {
-            console.log(JSON.stringify(resultContainers))
             if (NoEarlyBreak(instance, resultContainers)) {
                 earlyBreakCount += 1
                 console.error(`Detect can break in deep mode: ${earlyBreakCount}/${argv.deepTolerance}`)
@@ -164,13 +164,9 @@ async function UpdateUserMainInfo (argv, configs, user) {
     try {
         const crawler = new TwitterCrawler(account, argv.cookie, argv.verbose, breakHandler, argv.maxDepth)
         crawler.displayFetchedTweets = argv.displayFetchedTweets
-        if (argv.overrideCursor) {
-            crawler.bottomCursor = argv.overrideCursor
-        }
-
-        if (argv.overrideCursor) {
-            crawler.bottomCursor = argv.overrideCursor
-        }
+        crawler.saveDuration = argv.saveDuration
+        crawler.saveSnapShot = async () => SaveContainer(argv, configs)
+        crawler.bottomCursor = argv.overrideCursor ?? ''
 
         const [crawlResult, crawlRetweets] = await crawler.CrawlFromMainPage()
 
@@ -178,15 +174,12 @@ async function UpdateUserMainInfo (argv, configs, user) {
             const isExist = configs.containers[account].filter(ele => ele.tweetId === x.tweetId).length !== 0
             if (!isExist) {
                 configs.containers[account].push(x)
-                if (argv.verbose) { console.error(`update https://twitter.com/${account}/status/${x.tweetId}`) }
-                updateCount += 1
+                if (argv.verbose) {
+                    console.error(`[MainInfo] Add https://twitter.com/${account}/status/${x.tweetId}`)
+                }
             }
         })
 
-        if (updateCount > argv.saveDuration) {
-            await SaveContainer(argv, configs)
-            updateCount = 0
-        }
     } catch (err) {
         console.error(`Error occurs on ${account}: ${err.message}`)
         console.error(err.stack)

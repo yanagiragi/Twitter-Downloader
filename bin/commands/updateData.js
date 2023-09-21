@@ -59,12 +59,12 @@ function UpdateData (arg, configs) {
     for (const user of configs.data) {
         if (user.id === arg.id) {
             if (arg.createDate !== 'NULL') {
-                console.log(`Update ${user.id} createDate from ${user.createDate} to ${arg.createDate}`)
+                console.error(`Update ${user.id} createDate from ${user.createDate} to ${arg.createDate}`)
                 user.createDate = arg.createDate
                 isUpdate = true
             }
             if (arg.startDate !== 'NULL') {
-                console.log(`Update ${user.id} startDate from ${user.startDate} to ${arg.startDate}`)
+                console.error(`Update ${user.id} startDate from ${user.startDate} to ${arg.startDate}`)
                 user.startDate = arg.startDate
                 isUpdate = true
             }
