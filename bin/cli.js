@@ -11,6 +11,7 @@ const commands =
     [
         loadCommand('mainInfo'),
         loadCommand('searchInfo'),
+        loadCommand('media'),
         loadCommand('image'),
         loadCommand('clearData'),
         loadCommand('updateData'),

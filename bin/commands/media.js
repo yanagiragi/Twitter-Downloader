@@ -1,9 +1,9 @@
 const { TwitterCrawler } = require('../..')
 const { LoadConfig, SaveConfig, SaveContainer } = require('../config')
-const fs = require('fs-extra')
+const { EarlyBreak, NoEarlyBreak, Dispatch } = require('../utils')
 
 module.exports = {
-    command: 'mainInfo',
+    command: 'media',
     builder,
     handler
 }
@@ -11,7 +11,7 @@ module.exports = {
 /** @param {import('yargs').Argv} yargs */
 function builder (yargs) {
     yargs
-        .usage('\nCommand Description: Fetch tweets from main page waterfall')
+        .usage('\nCommand Description: Fetch tweets from media')
         .option('sync', {
             default: false,
             description: 'Fetch next tweet only if previous tweet is completed',
@@ -43,7 +43,7 @@ function builder (yargs) {
             type: 'boolean',
         })
         .option('displayFetchedTweets', {
-            default: false,
+            default: true,
             description: 'Enable detailed outputs when fetching',
             type: 'boolean',
         })
@@ -94,49 +94,19 @@ async function handler (argv) {
 
     if (argv.verbose) {
         console.error('============================================')
-        console.error('             UPDATE  MAIN  INFO')
+        console.error('             UPDATE  MEDIA  INFO')
         console.error('============================================')
         console.error(`Deep = ${argv.deep}`)
     }
 
     const configs = await LoadConfig(argv)
 
-    if (argv.sync) {
-        await UpdateMainInfoSync(argv, configs)
-    } else {
-        await UpdateMainInfo(argv, configs)
-    }
+    await Dispatch(argv, configs, UpdateUserMediaInfo)
 
     await SaveConfig(argv, configs)
 }
 
-function NoEarlyBreak (instance, resultContainers) {
-    const [tweetContainer, retweetContainer] = resultContainers
-    return tweetContainer.length === 0 && retweetContainer.length === 0
-}
-
-function EarlyBreak (instance, resultContainers, configs) {
-    const [tweetContainer, retweetContainer] = resultContainers
-
-    // if there were no more results, it might just due to that most tweets are reply
-    if (tweetContainer.length === 0) {
-        if (retweetContainer.length === 0) {
-            return true
-        }
-        // check if the tweets are all reply
-        // return false
-    }
-
-    const duplicatedCount = tweetContainer.reduce((acc, x) => {
-        const isExist = configs.containers[instance.account].filter(ele => ele.tweetId === x.tweetId).length !== 0
-        if (isExist) { return acc + 1 }
-        return acc
-    }, 0)
-
-    return (duplicatedCount === tweetContainer.length)
-}
-
-async function UpdateUserMainInfo (argv, configs, user) {
+async function UpdateUserMediaInfo (argv, configs, user) {
     const account = user.id
 
     if (configs.containers[account] === undefined) {
@@ -144,12 +114,11 @@ async function UpdateUserMainInfo (argv, configs, user) {
     }
 
     let updateCount = 1
-    if (argv.verbose) { console.error(`Fetching ${account} MainInfo`) }
+    if (argv.verbose) { console.error(`Fetching ${account} MediaInfo`) }
 
     let earlyBreakCount = 0
     const breakHandler = argv.deep
         ? (instance, resultContainers) => {
-            console.log(JSON.stringify(resultContainers))
             if (NoEarlyBreak(instance, resultContainers)) {
                 earlyBreakCount += 1
                 console.error(`Detect can break in deep mode: ${earlyBreakCount}/${argv.deepTolerance}`)
@@ -168,17 +137,13 @@ async function UpdateUserMainInfo (argv, configs, user) {
             crawler.bottomCursor = argv.overrideCursor
         }
 
-        if (argv.overrideCursor) {
-            crawler.bottomCursor = argv.overrideCursor
-        }
-
-        const [crawlResult, crawlRetweets] = await crawler.CrawlFromMainPage()
+        const [crawlResult, crawlRetweets] = await crawler.CrawlFromMedia()
 
         crawlResult.map(x => {
             const isExist = configs.containers[account].filter(ele => ele.tweetId === x.tweetId).length !== 0
             if (!isExist) {
                 configs.containers[account].push(x)
-                if (argv.verbose) { console.error(`update https://twitter.com/${account}/status/${x.tweetId}`) }
+                if (argv.verbose) { console.error(`[MediaInfo] Add https://twitter.com/${account}/status/${x.tweetId}`) }
                 updateCount += 1
             }
         })
@@ -191,15 +156,4 @@ async function UpdateUserMainInfo (argv, configs, user) {
         console.error(`Error occurs on ${account}: ${err.message}`)
         console.error(err.stack)
     }
-}
-
-async function UpdateMainInfoSync (argv, configs) {
-    for (const user of configs.data) {
-        await UpdateUserMainInfo(argv, configs, user)
-    }
-}
-
-async function UpdateMainInfo (argv, configs) {
-    const tasks = configs.data.map(user => UpdateUserMainInfo(argv, configs, user))
-    return Promise.all(tasks).catch(console.error)
 }

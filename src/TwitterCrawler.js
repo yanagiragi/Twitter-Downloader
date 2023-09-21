@@ -33,13 +33,15 @@ class TwitterCrawler {
 		this.EarlyBreak = EarlyBreakFunc
 		this.maxDepth = maxDepth
 		this.verbose = verbose
+		this.earlyBreakCount = 0
+		this.displayFetchedTweets = false
 
 		this.bottomCursor = '' // stay null for the first time
 		this.guestId = '' // update later
 		this.restId = '' // update later
 
 		// Not expose yet configs
-		this.dataPerCount = 100
+		this.dataPerCount = 20
 		this.debug = false
 	}
 
@@ -150,7 +152,7 @@ class TwitterCrawler {
 			if (content.toString().trim() == 'Rate limit exceeded') {
 				return { error: "Rate limit exceeded", cursor: this.bottomCursor }
 			}
-			return { error: "Rate limit exceeded", cursor: this.bottomCursor }
+			return { error, cursor: this.bottomCursor }
 		}
 	}
 
@@ -260,20 +262,8 @@ class TwitterCrawler {
 			console.log(`[${this.account}.CrawlFromMainPage] (${this.fetchResults.length}) <${results.length}, ${rawTweetResults.length}, ${retweetResults.length}, ${rawRetweetResults.length}>, depth = ${depth}, shouldBreak = ${shouldBreak}, cursor = ${this.bottomCursor}`)
 		}
 
-		if (this.debug) {
-			console.log('')
-
-			rawTweetResults.forEach(el => {
-				console.log(`\t${el.tweetId}: ${el.content.substring(0, 20)} - ${el.timestamp}`)
-			})
-
-			console.log('---')
-
-			rawRetweetResults.forEach(el => {
-				console.log(`\t${el.tweetId}: ${el.content.substring(0, 20)} - ${el.timestamp}`)
-			})
-
-			console.log('')
+		if (this.debug || this.displayFetchedTweets) {
+			this.PrettyPrintFetchedTweets(rawTweetResults, rawRetweetResults)
 		}
 
 		if (shouldBreak === false && depth <= this.maxDepth) {
@@ -303,6 +293,25 @@ class TwitterCrawler {
 		const isSensitive = this.IsSensitiveContent(tweet)
 
 		return new TwitterTweet(tweetId, photos, timestamp, content, isSensitive)
+	}
+
+	PrettyPrintFetchedTweets (rawTweetResults, rawRetweetResults) {
+		const trim = str => str.replaceAll('\n', '-').substring(0, 20)
+		if (rawTweetResults.length > 0) {
+			console.error(`\nTweets (${rawTweetResults.length}):`)
+		}
+		rawTweetResults.forEach(el => {
+			console.error(`\t[${el.timestamp}] ${el.tweetId}: ${trim(el.content)}`)
+		})
+		if (rawRetweetResults.length > 0) {
+			console.error(`\nRetweets (${rawRetweetResults.length}):`)
+		}
+		rawRetweetResults.forEach(el => {
+			console.error(`\t[${el.timestamp}] ${el.tweetId}: ${trim(el.content)}`)
+		})
+		if (rawTweetResults.length > 0 || rawRetweetResults.length > 0) {
+			console.error('')
+		}
 	}
 
 	GetOptions (useNoLogin = false) {
@@ -403,6 +412,79 @@ class TwitterCrawler {
 		return [results, retweetResults]
 	}
 
+	async FetchFromMedia () {
+		const query = `{"userId":"${this.restId}","count":${this.dataPerCount},"includePromotedContent":false,"withClientEventToken":false,"withBirdwatchNotes":false,"withVoice":true,"withV2Timeline":true, "cursor": "${this.bottomCursor}"}`
+		const features = `{"responsive_web_graphql_exclude_directive_enabled":true,"verified_phone_label_enabled":false,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_timeline_navigation_enabled":true,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":false,"tweetypie_unmention_optimization_enabled":true,"responsive_web_edit_tweet_api_enabled":true,"graphql_is_translatable_rweb_tweet_is_translatable_enabled":true,"view_counts_everywhere_api_enabled":true,"longform_notetweets_consumption_enabled":true,"responsive_web_twitter_article_tweet_consumption_enabled":false,"tweet_awards_web_tipping_enabled":false,"freedom_of_speech_not_reach_fetch_enabled":true,"standardized_nudges_misinfo":true,"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled":true,"longform_notetweets_rich_text_read_enabled":true,"longform_notetweets_inline_media_enabled":true,"responsive_web_media_download_video_enabled":false,"responsive_web_enhance_cards_enabled":false}`
+
+		const options = this.GetOptions()
+
+		const resp = await fetch(`https://twitter.com/i/api/graphql/Le6KlbilFmSu-5VltFND-Q/UserMedia?variables=${encodeURI(query)}&features=${encodeURI(features)}`, options)
+		const content = await resp.text()
+
+		try {
+			const data = JSON.parse(content)
+			this.bottomCursor = this.GetCursor(data)
+			return data
+		} catch (error) {
+			if (content.toString().trim() == 'Rate limit exceeded') {
+				return { error: "Rate limit exceeded", cursor: this.bottomCursor }
+			}
+			return { error, cursor: this.bottomCursor }
+		}
+	}
+
+	async CrawlFromMedia (depth = 0) {
+		await this.Preprocess()
+
+		if (this.restId === '') {
+			throw new Error('Error When Parsing Rest ID')
+		}
+
+		const data = await this.FetchFromMedia()
+
+		if (data?.error) {
+			console.error(`Detect error when fetch tweets of ${this.account}, Error = ${JSON.stringify(data)}`)
+			return [this.fetchResults, this.fetchRetweets]
+		}
+
+		if (this.debug) {
+			console.log(JSON.stringify(data))
+		}
+
+		const [rawTweetResults, rawRetweetResults] = this.ParseMainPageResult(data)
+
+		// Sometimes twitter returns duplicated results from different api calls
+		// To deal with this, we filter the raw_results and leave only new TwitterTweets
+		const isNotDuplicate = (ele, checkContainer) => {
+			return checkContainer.length === 0 || checkContainer.filter(x => x.tweetId === ele.tweetId).length === 0
+		}
+		const results = rawTweetResults.filter(x => isNotDuplicate(x, this.fetchResults))
+		const retweetResults = rawRetweetResults.filter(x => isNotDuplicate(x, this.fetchRetweets))
+
+		// store the crawled results
+		results.forEach(element => this.fetchResults.push(element))
+		retweetResults.forEach(element => this.fetchRetweets.push(element))
+
+		// pass params to callback provided from cli.js
+		// the purpose is for caching the results for early breaking the recursively crawls
+		const shouldBreak = this.EarlyBreak(this, [rawTweetResults, rawRetweetResults])
+
+		// eslint-disable-next-line no-trailing-spaces
+		if (this.verbose) {
+			console.log(`[${this.account}.CrawlFromMedia] (${this.fetchResults.length}) <${results.length}, ${rawTweetResults.length}, ${retweetResults.length}, ${rawRetweetResults.length}>, depth = ${depth}, shouldBreak = ${shouldBreak}, cursor = ${this.bottomCursor}`)
+		}
+
+		if (this.debug || this.displayFetchedTweets) {
+			this.PrettyPrintFetchedTweets(rawTweetResults, rawRetweetResults)
+		}
+
+		if (shouldBreak === false && depth <= this.maxDepth) {
+			return this.CrawlFromMedia(depth + 1)
+		} else {
+			return [this.fetchResults, this.fetchRetweets]
+		}
+	}
+
 	ParseSearchResult (restId, searchResults) {
 
 		const tweetContainer = []
@@ -480,6 +562,7 @@ class TwitterCrawler {
 		const contents = [type1, type2, type3].flat()
 		const results = contents
 			.map(x => x.itemContent.tweet_results.result)
+			.filter(Boolean)
 			.map(x => x.__typename == 'TweetWithVisibilityResults' ? x.tweet : x)
 
 		return results
@@ -513,12 +596,13 @@ class TwitterCrawler {
 	}
 
 	GetEntries (data) {
-		const entries = data.data.user.result.timeline.timeline.instructions.filter(x => x.type === 'TimelineAddEntries')[0].entries
+		const root = data.data.user.result.timeline ?? data.data.user.result.timeline_v2
+		const entries = root.timeline.instructions.filter(x => x.type === 'TimelineAddEntries')[0].entries
 		if (!this.bottomCursor) {
 			return [
 				entries,
-				data.data.user.result.timeline.timeline.instructions.filter(x => x.type === 'TimelinePinEntry')[0].entry // deal tweets that are pinned
-			].flat()
+				root.timeline.instructions.filter(x => x.type === 'TimelinePinEntry')?.[0]?.entry // deal tweets that are pinned
+			].flat().filter(Boolean)
 		}
 		return entries
 	}
@@ -526,25 +610,28 @@ class TwitterCrawler {
 
 // Tests
 if (require.main === module) {
+	(async function () {
 
-	const cookie = ''
+		const cookie = ''
+		const account = 'HitenKei'
+		const crawler = new TwitterCrawler(account, cookie, true, () => false, 1)
 
-	const account = 'HitenKei'
-	const crawler = new TwitterCrawler(account, cookie, true, () => false, 1)
-
-	// Crawl Test
-	crawler.CrawlFromMainPage().then(result => {
+		// Crawl Test
+		let result = await crawler.CrawlFromMainPage()
 		console.log('result = ', result)
-		crawler.CrawlFromAdvancedSearch('2020-02-08', '2020-03-01').then(result => {
-			console.log('result = ', result)
-		})
-	})
 
-	// Fetch Test
-	const case1 = '1585753743462518784' // normal content
-	const case2 = '1586374516540047360' // mature content
-	const tasks = [case1, case2].map(x => crawler.FetchFromTweet(x))
-	Promise.all(tasks).then(console.log)
+		result = await crawler.CrawlFromAdvancedSearch('2020-02-08', '2020-03-01')
+		console.log('result = ', result)
+
+		result = await crawler.CrawlFromMedia()
+		console.log('result = ', result)
+
+		// Fetch Test
+		const case1 = '1585753743462518784' // normal content
+		const case2 = '1586374516540047360' // mature content
+		const tasks = [case1, case2].map(x => crawler.FetchFromTweet(x))
+		Promise.all(tasks).then(console.log)
+	})()
 }
 
 exports.TwitterTweet = TwitterTweet
