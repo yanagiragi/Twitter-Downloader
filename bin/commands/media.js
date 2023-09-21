@@ -24,7 +24,7 @@ function builder (yargs) {
         })
         .option('deepTolerance', {
             default: 1,
-            description: '',
+            description: 'Fetch all tweets in waterfall until there is no tweets `n` times then break',
             type: 'number',
         })
         .option('useRemoteStorage', {
