@@ -43,7 +43,7 @@ function builder (yargs) {
             type: 'boolean',
         })
         .option('displayFetchedTweets', {
-            default: true,
+            default: false,
             description: 'Enable detailed outputs when fetching',
             type: 'boolean',
         })
