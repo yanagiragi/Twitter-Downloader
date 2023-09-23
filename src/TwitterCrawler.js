@@ -203,6 +203,9 @@ class TwitterCrawler {
 			const twitterTweet = getTweetResultFromTweet(tweet)
 			if (this.IsRetweet(tweet)) {
 				// if a tweet retweets previous tweet from himself, also collects it
+				// Although the original tweet will appear in older data, we can collect it first
+				// 
+				// case: https://twitter.com/hechi_zou/status/1663016084910518273 retweets https://twitter.com/hechi_zou/status/1661027529254404096
 				if (this.IsRetweetSelf(tweet)) {
 					const newTwitterTweet = getTweetResultFromTweet(tweet.legacy.retweeted_status_result.result)
 					tweetContainer.push(newTwitterTweet)
