@@ -45,7 +45,10 @@ async function handler (argv) {
     const result = await UpdateImage(argv, configs)
     const doneCount = result.filter(Boolean).length
 
-    console.error(`Done/Failed: ${doneCount}/${result.length - doneCount}`)
+    if (result.length > 0) {
+        console.log(`Done/Failed: ${doneCount}/${result.length - doneCount}`)
+    }
+
     if (doneCount > 0) {
         await SaveConfig(argv, configs)
     }
@@ -90,17 +93,13 @@ async function UpdateImage (argv, configs) {
         if (argv.verbose) {
             console.error(`Running ${task.index}/${tasks.length}: ${task.img}`)
         }
-        const result = await DownloadImage(task.img, task.filename, task.key, configs)
+
+        const result = await FetchImage(task.img, task.filename)
+        if (result) {
+            configs.processed.push(task.key)
+            console.log(`Successfully Download ${task.img} as ${task.filename}`)
+        }
+
         return result
     }, { concurrency: 10 })
-}
-
-
-async function DownloadImage (url, filename, key, configs) {
-    const result = await FetchImage(url, filename)
-    if (result) {
-        configs.processed.push(key)
-        console.log(`Successfully Download ${url} as ${filename}`)
-    }
-    return result
 }
