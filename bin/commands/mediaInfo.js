@@ -3,7 +3,7 @@ const { LoadConfig, SaveConfig, SaveContainer } = require('../config')
 const { EarlyBreak, NoEarlyBreak, Dispatch } = require('../utils')
 
 module.exports = {
-    command: 'media',
+    command: 'MediaInfo',
     builder,
     handler
 }
@@ -99,52 +99,52 @@ async function handler (argv) {
         console.error(`Deep = ${argv.deep}`)
     }
 
-    const configs = await LoadConfig(argv)
+    const config = await LoadConfig(argv)
 
-    await Dispatch(argv, configs, UpdateUserMediaInfo)
+    await Dispatch(config, UpdateUserMediaInfo)
 
-    await SaveConfig(argv, configs)
+    await SaveConfig(config)
 }
 
-async function UpdateUserMediaInfo (argv, configs, user) {
+async function UpdateUserMediaInfo (config, user) {
     const account = user.id
 
-    if (configs.containers[account] === undefined) {
-        configs.containers[account] = []
+    if (config.containers[account] === undefined) {
+        config.containers[account] = []
     }
 
-    if (argv.verbose) {
+    if (config.argv.verbose) {
         console.error(`Fetching ${account} MediaInfo`)
     }
 
     let earlyBreakCount = 0
-    const breakHandler = argv.deep
+    const breakHandler = config.argv.deep
         ? (instance, resultContainers) => {
             if (NoEarlyBreak(instance, resultContainers)) {
                 earlyBreakCount += 1
-                console.error(`Detect can break in deep mode: ${earlyBreakCount}/${argv.deepTolerance}`)
+                console.error(`Detect can break in deep mode: ${earlyBreakCount}/${config.argv.deepTolerance}`)
             }
-            if (earlyBreakCount >= argv.deepTolerance) {
+            if (earlyBreakCount >= config.argv.deepTolerance) {
                 return true
             }
             return false
         }
-        : (instance, resultContainers) => EarlyBreak(instance, resultContainers, configs)
+        : (instance, resultContainers) => EarlyBreak(instance, resultContainers, config)
 
     try {
-        const crawler = new TwitterCrawler(account, argv.cookie, argv.verbose, breakHandler, argv.maxDepth)
-        crawler.displayFetchedTweets = argv.displayFetchedTweets
-        crawler.saveDuration = argv.saveDuration
-        crawler.saveSnapShot = async () => SaveContainer(argv, configs)
-        crawler.bottomCursor = argv.overrideCursor ?? ''
+        const crawler = new TwitterCrawler(account, config.argv.cookie, config.argv.verbose, breakHandler, config.argv.maxDepth)
+        crawler.displayFetchedTweets = config.argv.displayFetchedTweets
+        crawler.saveDuration = config.argv.saveDuration
+        crawler.saveSnapShot = async () => SaveContainer(argv, config)
+        crawler.bottomCursor = config.argv.overrideCursor ?? ''
 
         const [crawlResult, crawlRetweets] = await crawler.CrawlFromMedia()
 
         crawlResult.map(x => {
-            const isExist = configs.containers[account].filter(ele => ele.tweetId === x.tweetId).length !== 0
+            const isExist = config.containers[account].filter(ele => ele.tweetId === x.tweetId).length !== 0
             if (!isExist) {
-                configs.containers[account].push(x)
-                if (argv.verbose) {
+                config.containers[account].push(x)
+                if (config.argv.verbose) {
                     console.error(`[MediaInfo] Add https://twitter.com/${account}/status/${x.tweetId}`)
                 }
             }

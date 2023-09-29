@@ -28,14 +28,14 @@ async function handler (argv) {
         console.error('============================================')
     }
 
-    const configs = await LoadConfig(argv)
-    ListData(configs)
+    const config = await LoadConfig(argv)
+    ListData(config)
 }
 
-function ListData (configs) {
+function ListData (config) {
     const t = new Table()
 
-    configs.data.forEach(d => {
+    config.data.forEach(d => {
         const omitPrefix = `${(d.ignore && d.ignore === true) ? '** ' : ''}`
         t.cell('Twitter Id (** For Omitted)', omitPrefix + d.id)
         t.cell('Create Date', d.createDate)

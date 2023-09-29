@@ -40,9 +40,9 @@ async function handler (argv) {
         console.error('============================================')
     }
 
-    const configs = await LoadConfig(argv)
+    const config = await LoadConfig(argv)
 
-    const result = await UpdateImage(argv, configs)
+    const result = await UpdateImage(config)
     const doneCount = result.filter(Boolean).length
 
     if (result.length > 0) {
@@ -50,18 +50,18 @@ async function handler (argv) {
     }
 
     if (doneCount > 0) {
-        await SaveConfig(argv, configs)
+        await SaveConfig(config)
     }
 }
 
-async function UpdateImage (argv, configs) {
+async function UpdateImage (config) {
     const tasks = []
-    for (let i = 0; i < configs.data.length; ++i) {
-        const user = configs.data[i]
+    for (let i = 0; i < config.data.length; ++i) {
+        const user = config.data[i]
 
-        await fs.ensureDir(`${configs.StoragePath}/${user.id}`)
+        await fs.ensureDir(`${config.StoragePath}/${user.id}`)
 
-        const imgs = configs.containers[user.id].reduce((acc, ele) => {
+        const imgs = config.containers[user.id].reduce((acc, ele) => {
             if (ele.hasPhoto) { return acc.concat([...ele.photos]) } else { return acc }
         }, [])
 
@@ -69,11 +69,11 @@ async function UpdateImage (argv, configs) {
             const img = imgs[j]
 
             // remove :orig when saving
-            const filename = path.join(configs.StoragePath, user.id, img.replace(':orig', '').substring(img.lastIndexOf('/') + 1))
+            const filename = path.join(config.StoragePath, user.id, img.replace(':orig', '').substring(img.lastIndexOf('/') + 1))
             const key = path.join(user.id, img.replace(':orig', '').substring(img.lastIndexOf('/') + 1))
 
-            if (!argv.useRemoteStorage) {
-                const existInCache = argv.useProcessedJson && configs.processed.includes(key)
+            if (!config.argv.useRemoteStorage) {
+                const existInCache = config.argv.useProcessedJson && config.processed.includes(key)
                 const existInDisk = await fs.exists(filename)
                 if (existInCache || existInDisk) {
                     continue
@@ -83,20 +83,20 @@ async function UpdateImage (argv, configs) {
                 continue
             }
 
-            if (!configs.skipUrls.includes(img)) {
+            if (!config.skipUrls.includes(img)) {
                 tasks.push({ index: tasks.length, img: img, filename: filename, key: key })
             }
         }
     }
 
     return pMap(tasks, async task => {
-        if (argv.verbose) {
+        if (config.argv.verbose) {
             console.error(`Running ${task.index}/${tasks.length}: ${task.img}`)
         }
 
         const result = await FetchImage(task.img, task.filename)
         if (result) {
-            configs.processed.push(task.key)
+            config.processed.push(task.key)
             console.log(`Successfully Download ${task.img} as ${task.filename}`)
         }
 

@@ -16,10 +16,6 @@ function builder (yargs) {
             default: false,
             type: 'boolean',
         })
-        .option('deep', {
-            default: false,
-            type: 'boolean',
-        })
         .option('useRemoteStorage', {
             default: false,
             type: 'boolean',
@@ -49,11 +45,11 @@ function builder (yargs) {
             type: 'integer',
         })
         .option('overrideData', {
-            default: '',
+            default: null,
             type: 'string',
         })
         .option('overrideConfig', {
-            default: '',
+            default: null,
             type: 'string',
         })
         .option('outputConfig', {
@@ -64,6 +60,8 @@ function builder (yargs) {
             demandOption: true,
             type: 'string',
         })
+        .alias('s', 'sync')
+        .alias('c', 'cookie')
 }
 
 /**
@@ -75,41 +73,40 @@ async function handler (argv) {
         console.error('============================================')
         console.error('             UPDATE  SEARCH INFO')
         console.error('============================================')
-        console.error(`Deep = ${argv.deep}`)
     }
 
-    const configs = await LoadConfig(argv)
+    const config = await LoadConfig(argv)
 
-    if (argv.sync) {
-        await UpdateSearchInfoSync(argv, configs)
+    if (config.argv.sync) {
+        await UpdateSearchInfoSync(config)
     } else {
-        await UpdateSearchInfo(argv, configs)
+        await UpdateSearchInfo(config)
     }
 
-    await SaveConfig(argv, configs)
+    await SaveConfig(config)
 }
 
 
-async function UpdateUserSearchInfo (argv, configs, user) {
-    const isVerbose = argv.verbose
+async function UpdateUserSearchInfo (config, user) {
+
     const account = user.id
     let startDate = user.startDate
 
-    if (configs.containers[account] === undefined) {
-        configs.containers[account] = []
+    if (config.containers[account] === undefined) {
+        config.containers[account] = []
     }
 
-    if (startDate === configs.currentDate) {
-        if (argv.verbose) {
+    if (startDate === config.currentDate) {
+        if (config.argv.verbose) {
             console.error(`${account} Already up to date. Skip.`)
         }
         return false
     } else {
         let updateCount = 1
-        const crawler = new TwitterCrawler(account, argv.cookie, argv.verbose, () => false, argv.maxDepth)
-        while (FormatDate(startDate) < FormatDate(configs.currentDate)) {
-            const nextDate = IncreaseDate(startDate, argv.daySkip)
-            if (argv.verbose) {
+        const crawler = new TwitterCrawler(account, config.argv.cookie, config.argv.verbose, () => false, config.argv.maxDepth)
+        while (FormatDate(startDate) < FormatDate(config.currentDate)) {
+            const nextDate = IncreaseDate(startDate, config.argv.daySkip)
+            if (config.argv.verbose) {
                 console.error(`Fetching ${account}, Date = ${startDate} ~ ${nextDate}`)
             }
             try {
@@ -117,10 +114,10 @@ async function UpdateUserSearchInfo (argv, configs, user) {
 
                 const tweetResult = crawlResult[0]
                 tweetResult.map(x => {
-                    const isExist = configs.containers[account].filter(ele => ele.tweetId === x.tweetId).length !== 0
+                    const isExist = config.containers[account].filter(ele => ele.tweetId === x.tweetId).length !== 0
                     if (!isExist) {
-                        configs.containers[account].push(x)
-                        if (argv.verbose) {
+                        config.containers[account].push(x)
+                        if (config.argv.verbose) {
                             console.error(`add https://twitter.com/${account}/status/${x.tweetId} into ${user.id}`)
                         }
                         // update with double weight when new tweet is found
@@ -134,17 +131,17 @@ async function UpdateUserSearchInfo (argv, configs, user) {
                 // update anyway, force no data stills increase updateCount
                 updateCount += 1
 
-                if (updateCount > argv.saveDuration) {
+                if (updateCount > config.argv.saveDuration) {
                     user.startDate = startDate
-                    await SaveData(argv, configs)
-                    await SaveContainer(argv, configs)
+                    await SaveData(argv, config)
+                    await SaveContainer(argv, config)
                     console.error(`Save Snapshot: ${user.id} ${startDate}`)
                     updateCount = 0
                 }
 
                 startDate = nextDate
 
-                if (argv.useOneShot) {
+                if (config.argv.useOneShot) {
                     break
                 }
 
@@ -162,16 +159,16 @@ async function UpdateUserSearchInfo (argv, configs, user) {
     return true
 }
 
-async function UpdateSearchInfoSync (argv, configs) {
-    for (const user of configs.data) {
-        const hasChange = await UpdateUserSearchInfo(argv, configs, user)
-        if (argv.useOneShot && hasChange) {
+async function UpdateSearchInfoSync (config) {
+    for (const user of config.data) {
+        const hasChange = await UpdateUserSearchInfo(config, user)
+        if (config.argv.useOneShot && hasChange) {
             break
         }
     }
 }
 
-async function UpdateSearchInfo (argv, configs) {
-    const tasks = configs.data.map(user => UpdateUserSearchInfo(argv, configs, user))
+async function UpdateSearchInfo (config) {
+    const tasks = config.data.map(user => UpdateUserSearchInfo(config, user))
     return Promise.all(tasks)
 }

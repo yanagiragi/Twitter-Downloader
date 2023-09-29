@@ -28,9 +28,9 @@ async function handler (argv) {
         console.error('============================================')
     }
 
-    const configs = await LoadConfig(argv)
+    const config = await LoadConfig(argv)
 
-    for (const user of configs.data) {
+    for (const user of config.data) {
         if (user.createDate) {
             const startDate = user.startDate
             user.startDate = user.createDate
@@ -38,5 +38,5 @@ async function handler (argv) {
         }
     }
 
-    await SaveData(argv, configs)
+    await SaveData(config)
 }

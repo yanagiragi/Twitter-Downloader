@@ -41,22 +41,22 @@ async function handler (argv) {
         console.error('============================================')
     }
 
-    const configs = await LoadConfig(argv)
+    const config = await LoadConfig(argv)
 
     const arg = {
-        id: argv.id,
-        createDate: argv.createDate,
-        startDate: argv.startDate
+        id: config.argv.id,
+        createDate: config.argv.createDate,
+        startDate: config.argv.startDate
     }
 
-    UpdateData(arg, configs)
-    await SaveData(argv, configs)
+    UpdateData(arg, config)
+    await SaveData(config)
 }
 
-function UpdateData (arg, configs) {
+function UpdateData (arg, config) {
     let isUpdate = false
 
-    for (const user of configs.data) {
+    for (const user of config.data) {
         if (user.id === arg.id) {
             if (arg.createDate !== 'NULL') {
                 console.error(`Update ${user.id} createDate from ${user.createDate} to ${arg.createDate}`)
@@ -85,6 +85,6 @@ function UpdateData (arg, configs) {
             arg.startDate = arg.createDate
         }
         console.log(`Add ${arg.id}, startDate = ${arg.startDate}, createDate = ${arg.createDate}`)
-        configs.data.push(arg)
+        config.data.push(arg)
     }
 }

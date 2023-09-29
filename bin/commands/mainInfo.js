@@ -99,15 +99,15 @@ async function handler (argv) {
         console.error(`Deep = ${argv.deep}`)
     }
 
-    const configs = await LoadConfig(argv)
+    const config = await LoadConfig(argv)
 
-    if (argv.sync) {
-        await UpdateMainInfoSync(argv, configs)
+    if (config.argv.sync) {
+        await UpdateMainInfoSync(config)
     } else {
-        await UpdateMainInfo(argv, configs)
+        await UpdateMainInfo(config)
     }
 
-    await SaveConfig(argv, configs)
+    await SaveConfig(config)
 }
 
 function NoEarlyBreak (instance, resultContainers) {
@@ -115,7 +115,7 @@ function NoEarlyBreak (instance, resultContainers) {
     return tweetContainer.length === 0 && retweetContainer.length === 0
 }
 
-function EarlyBreak (instance, resultContainers, configs) {
+function EarlyBreak (instance, resultContainers, config) {
     const [tweetContainer, retweetContainer] = resultContainers
 
     // if there were no more results, it might just due to that most tweets are reply
@@ -128,7 +128,7 @@ function EarlyBreak (instance, resultContainers, configs) {
     }
 
     const duplicatedCount = tweetContainer.reduce((acc, x) => {
-        const isExist = configs.containers[instance.account].filter(ele => ele.tweetId === x.tweetId).length !== 0
+        const isExist = config.containers[instance.account].filter(ele => ele.tweetId === x.tweetId).length !== 0
         if (isExist) { return acc + 1 }
         return acc
     }, 0)
@@ -136,45 +136,45 @@ function EarlyBreak (instance, resultContainers, configs) {
     return (duplicatedCount === tweetContainer.length)
 }
 
-async function UpdateUserMainInfo (argv, configs, user) {
+async function UpdateUserMainInfo (config, user) {
     const account = user.id
 
-    if (configs.containers[account] === undefined) {
-        configs.containers[account] = []
+    if (config.containers[account] === undefined) {
+        config.containers[account] = []
     }
 
-    if (argv.verbose) {
+    if (config.argv.verbose) {
         console.error(`Fetching ${account} MainInfo`)
     }
 
     let earlyBreakCount = 0
-    const breakHandler = argv.deep
+    const breakHandler = config.argv.deep
         ? (instance, resultContainers) => {
             if (NoEarlyBreak(instance, resultContainers)) {
                 earlyBreakCount += 1
-                console.error(`Detect can break in deep mode: ${earlyBreakCount}/${argv.deepTolerance}`)
+                console.error(`Detect can break in deep mode: ${earlyBreakCount}/${config.argv.deepTolerance}`)
             }
-            if (earlyBreakCount >= argv.deepTolerance) {
+            if (earlyBreakCount >= config.argv.deepTolerance) {
                 return true
             }
             return false
         }
-        : (instance, resultContainers) => EarlyBreak(instance, resultContainers, configs)
+        : (instance, resultContainers) => EarlyBreak(instance, resultContainers, config)
 
     try {
-        const crawler = new TwitterCrawler(account, argv.cookie, argv.verbose, breakHandler, argv.maxDepth)
-        crawler.displayFetchedTweets = argv.displayFetchedTweets
-        crawler.saveDuration = argv.saveDuration
-        crawler.saveSnapShot = async () => SaveContainer(argv, configs)
-        crawler.bottomCursor = argv.overrideCursor ?? ''
+        const crawler = new TwitterCrawler(account, config.argv.cookie, config.argv.verbose, breakHandler, config.argv.maxDepth)
+        crawler.displayFetchedTweets = config.argv.displayFetchedTweets
+        crawler.saveDuration = config.argv.saveDuration
+        crawler.saveSnapShot = async () => SaveContainer(argv, config)
+        crawler.bottomCursor = config.argv.overrideCursor ?? ''
 
         const [crawlResult, crawlRetweets] = await crawler.CrawlFromMainPage()
 
         crawlResult.map(x => {
-            const isExist = configs.containers[account].filter(ele => ele.tweetId === x.tweetId).length !== 0
+            const isExist = config.containers[account].filter(ele => ele.tweetId === x.tweetId).length !== 0
             if (!isExist) {
-                configs.containers[account].push(x)
-                if (argv.verbose) {
+                config.containers[account].push(x)
+                if (config.argv.verbose) {
                     console.error(`[MainInfo] Add https://twitter.com/${account}/status/${x.tweetId}`)
                 }
             }
@@ -186,13 +186,13 @@ async function UpdateUserMainInfo (argv, configs, user) {
     }
 }
 
-async function UpdateMainInfoSync (argv, configs) {
-    for (const user of configs.data) {
-        await UpdateUserMainInfo(argv, configs, user)
+async function UpdateMainInfoSync (config) {
+    for (const user of config.data) {
+        await UpdateUserMainInfo(config, user)
     }
 }
 
-async function UpdateMainInfo (argv, configs) {
-    const tasks = configs.data.map(user => UpdateUserMainInfo(argv, configs, user))
+async function UpdateMainInfo (config) {
+    const tasks = config.data.map(user => UpdateUserMainInfo(config, user))
     return Promise.all(tasks).catch(console.error)
 }

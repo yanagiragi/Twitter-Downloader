@@ -60,7 +60,7 @@ function NoEarlyBreak (instance, resultContainers) {
 	return tweetContainer.length === 0 && retweetContainer.length === 0
 }
 
-function EarlyBreak (instance, resultContainers, configs) {
+function EarlyBreak (instance, resultContainers, config) {
 	const [tweetContainer, retweetContainer] = resultContainers
 
 	// if there were no more results, it might just due to that most tweets are reply
@@ -73,7 +73,7 @@ function EarlyBreak (instance, resultContainers, configs) {
 	}
 
 	const duplicatedCount = tweetContainer.reduce((acc, x) => {
-		const isExist = configs.containers[instance.account].filter(ele => ele.tweetId === x.tweetId).length !== 0
+		const isExist = config.containers[instance.account].filter(ele => ele.tweetId === x.tweetId).length !== 0
 		if (isExist) { return acc + 1 }
 		return acc
 	}, 0)
@@ -81,21 +81,21 @@ function EarlyBreak (instance, resultContainers, configs) {
 	return (duplicatedCount === tweetContainer.length)
 }
 
-async function Dispatch (argv, configs, func) {
-	if (argv.sync) {
-		return DispatchSync(argv, configs, func)
+async function Dispatch (config, func) {
+	if (config.argv.sync) {
+		return DispatchSync(config, func)
 	}
-	return DispatchAsync(argv, configs, func)
+	return DispatchAsync(config, func)
 }
 
-async function DispatchSync (argv, configs, func) {
-	for (const user of configs.data) {
-		await func(argv, configs, user)
+async function DispatchSync (config, func) {
+	for (const user of config.data) {
+		await func(config, user)
 	}
 }
 
-async function DispatchAsync (argv, configs, func) {
-	const tasks = configs.data.map(user => func(argv, configs, user))
+async function DispatchAsync (config, func) {
+	const tasks = config.data.map(user => func(config, user))
 	return Promise.all(tasks).catch(console.error)
 }
 

@@ -16,8 +16,8 @@ function UpdateRemoteStorageCache () {
 async function LoadConfig (argv) {
 
     if (argv.overrideConfig) {
-        const configs = JSON.parse(argv.overrideConfig)
-        return configs
+        const config = JSON.parse(argv.overrideConfig)
+        return Object.assign(config, { argv })
     }
 
     const useRemoteStorage = argv.useRemoteStorage
@@ -51,6 +51,7 @@ async function LoadConfig (argv) {
     }
 
     const rawData = argv.overrideData ?? await fs.readFile(dataPath)
+
     try {
         data = JSON.parse(rawData)
         originalOrder = data.map(x => x.id)
@@ -63,7 +64,7 @@ async function LoadConfig (argv) {
             data = data.filter(x => typeof x.ignore === 'undefined' && x.ignore !== true)
         }
     } catch (err) {
-        console.error(`Failed Parsing ${(argv.overrideData ?? dataPath)}, error = ${err}`)
+        console.error(`Failed Parsing dataPath: ${(argv.overrideData ?? dataPath)}, error = ${err}`)
         process.exit()
     }
 
@@ -73,7 +74,7 @@ async function LoadConfig (argv) {
         try {
             corrupted = JSON.parse(rawCorrupted)
         } catch (err) {
-            console.error(`Failed Parsing ${corruptedPath}, error = ${err}`)
+            console.error(`Failed Parsing corruptedPath: ${corruptedPath}, error = ${err}`)
             process.exit()
         }
     }
@@ -84,7 +85,7 @@ async function LoadConfig (argv) {
             processed = JSON.parse(rawProcessed)
             processed = processed.filter(x => !corrupted.includes(x))
         } catch (err) {
-            console.error(`Failed Parsing ${processedPath}, error = ${err}`)
+            console.error(`Failed Parsing processedPath: ${processedPath}, error = ${err}`)
             process.exit()
         }
     }
@@ -94,7 +95,7 @@ async function LoadConfig (argv) {
         try {
             containers = JSON.parse(rawContainer)
         } catch (err) {
-            console.error(`Failed Parsing ${containerPath}, error = ${err}`)
+            console.error(`Failed Parsing containerPath: ${containerPath}, error = ${err}`)
             process.exit()
         }
     }
@@ -104,12 +105,12 @@ async function LoadConfig (argv) {
         try {
             skipUrls = JSON.parse(rawContainer)
         } catch (err) {
-            console.error(`Failed Parsing ${skipContainerPath}, error = ${err}`)
+            console.error(`Failed Parsing skipContainerPath: ${skipContainerPath}, error = ${err}`)
             process.exit()
         }
     }
 
-    return {
+    const config = {
         StoragePath,
         dataFolderPath,
         dataPath,
@@ -128,99 +129,96 @@ async function LoadConfig (argv) {
         originalContainers: JSON.parse(JSON.stringify(containers)), // deep copy
         originalProcessed: JSON.parse(JSON.stringify(processed)) // deep copy
     }
+
+    return Object.assign(config, { argv })
 }
 
-async function SaveConfig (argv, configs) {
+async function SaveConfig (config) {
 
-    if (argv == null) {
-        console.error("Detect argv is null. Abort.")
+    if (config == null) {
+        console.error("Detect config is null. Abort.")
         return
     }
 
-    if (configs == null) {
-        console.error("Detect configs is null. Abort.")
-        return
-    }
+    const mode = config.argv._
 
-    const mode = argv._
-
-    if (argv.useRemoteStorage === 'true') {
+    if (config.argv.useRemoteStorage === 'true') {
         console.error('Saving ...')
     }
 
-    if (argv.shuffle) {
-        configs.data.sort((a, b) => configs.originalOrder.indexOf(a.id) - configs.originalOrder.indexOf(b.id))
+    if (config.argv.shuffle) {
+        config.data.sort((a, b) => config.originalOrder.indexOf(a.id) - config.originalOrder.indexOf(b.id))
     }
 
     // if (UpdateDate) {
     //     config.data.forEach(x => x.startDate = currentDate)
     // }
 
-    for (const key in configs.containers) {
-        const ele = configs.containers[key]
+    for (const key in config.containers) {
+        const ele = config.containers[key]
         ele.map(x => {
             x.timestamp = FormatTwitterTimestamp(x.timestamp)
         })
         ele.sort((a, b) => FormatDate(a.timestamp) < FormatDate(b.timestamp) ? 1 : -1)
     }
 
-    if (argv.outputConfig) {
-        console.log(JSON.stringify(configs))
+    if (config.argv.outputConfig) {
+        console.log(JSON.stringify(config))
         return
     }
 
-    if (JSON.stringify(configs.data) != JSON.stringify(configs.originalData)) {
-        if (argv.verbose) {
-            console.error(`Save ${configs.dataPath}.`)
+    if (JSON.stringify(config.data) != JSON.stringify(config.originalData)) {
+        if (config.argv.verbose) {
+            console.error(`Save ${config.dataPath}.`)
         }
-        await fs.writeFile(configs.dataPath, JSON.stringify(configs.data, null, 4))
+        await fs.writeFile(config.dataPath, JSON.stringify(config.data, null, 4))
     }
 
-    if (JSON.stringify(configs.containers) != JSON.stringify(configs.originalContainers)) {
-        await fs.writeFile(configs.containerPath, JSON.stringify(configs.containers, null, 4))
-        if (argv.verbose) {
-            console.error(`Save ${configs.containerPath}.`)
+    if (JSON.stringify(config.containers) != JSON.stringify(config.originalContainers)) {
+        await fs.writeFile(config.containerPath, JSON.stringify(config.containers, null, 4))
+        if (config.argv.verbose) {
+            console.error(`Save ${config.containerPath}.`)
         }
     }
 
-    if (JSON.stringify(configs.processed) != JSON.stringify(configs.originalProcessed)) {
-        await fs.writeFile(configs.processedPath, JSON.stringify(configs.processed, null, 4))
-        if (argv.verbose) {
-            console.error(`Save ${configs.processedPath}.`)
+    if (JSON.stringify(config.processed) != JSON.stringify(config.originalProcessed)) {
+        await fs.writeFile(config.processedPath, JSON.stringify(config.processed, null, 4))
+        if (config.argv.verbose) {
+            console.error(`Save ${config.processedPath}.`)
         }
     }
 
     if (mode === 'image') {
-        await fs.writeFile(configs.corruptedPath, JSON.stringify([], null, 4))
-        if (argv.verbose) {
-            console.error(`Save ${configs.corruptedPath}.`)
+        await fs.writeFile(config.corruptedPath, JSON.stringify([], null, 4))
+        if (config.argv.verbose) {
+            console.error(`Save ${config.corruptedPath}.`)
         }
     }
 
-    if (argv.verbose) {
+    if (config.argv.verbose) {
         console.error('Save Done.')
     }
 }
 
-async function SaveData (argv, configs) {
-    if (configs == null) {
-        console.error("Detect configs is null. Abort.")
+async function SaveData (config) {
+    if (config == null) {
+        console.error("Detect config is null. Abort.")
         return
     }
-    await fs.writeFile(configs.dataPath, JSON.stringify(configs.data, null, 4))
-    if (argv.verbose) {
-        console.error(`Save ${configs.dataPath}.`)
+    await fs.writeFile(config.dataPath, JSON.stringify(config.data, null, 4))
+    if (config.argv.verbose) {
+        console.error(`Save ${config.dataPath}.`)
     }
 }
 
-async function SaveContainer (argv, configs) {
-    if (configs == null) {
-        console.error("Detect configs is null. Abort.")
+async function SaveContainer (config) {
+    if (config == null) {
+        console.error("Detect config is null. Abort.")
         return
     }
-    await fs.writeFile(configs.containerPath, JSON.stringify(configs.containers, null, 4))
-    if (argv.verbose) {
-        console.error(`Save ${configs.containerPath}.`)
+    await fs.writeFile(config.containerPath, JSON.stringify(config.containers, null, 4))
+    if (config.argv.verbose) {
+        console.error(`Save ${config.containerPath}.`)
     }
 }
 
