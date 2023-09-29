@@ -3,7 +3,7 @@ const { LoadConfig, SaveConfig, SaveContainer } = require('../config')
 const { EarlyBreak, NoEarlyBreak, Dispatch } = require('../utils')
 
 module.exports = {
-    command: 'MediaInfo',
+    command: 'mediaInfo',
     builder,
     handler
 }
@@ -65,6 +65,11 @@ function builder (yargs) {
         .option('overrideData', {
             default: null,
             description: 'An option to override data.json by args',
+            type: 'string',
+        })
+        .option('overrideContainer', {
+            default: null,
+            description: 'An option to override container.json by args',
             type: 'string',
         })
         .option('overrideConfig', {
@@ -135,7 +140,7 @@ async function UpdateUserMediaInfo (config, user) {
         const crawler = new TwitterCrawler(account, config.argv.cookie, config.argv.verbose, breakHandler, config.argv.maxDepth)
         crawler.displayFetchedTweets = config.argv.displayFetchedTweets
         crawler.saveDuration = config.argv.saveDuration
-        crawler.saveSnapShot = async () => SaveContainer(argv, config)
+        crawler.saveSnapShot = async () => SaveContainer(config)
         crawler.bottomCursor = config.argv.overrideCursor ?? ''
 
         const [crawlResult, crawlRetweets] = await crawler.CrawlFromMedia()

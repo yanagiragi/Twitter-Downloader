@@ -52,6 +52,11 @@ function builder (yargs) {
             default: null,
             type: 'string',
         })
+        .option('overrideContainer', {
+            default: null,
+            description: 'An option to override container.json by args',
+            type: 'string',
+        })
         .option('outputConfig', {
             default: false,
             type: 'boolean',

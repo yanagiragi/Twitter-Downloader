@@ -69,7 +69,7 @@ async function UpdateImage (config) {
             const img = imgs[j]
 
             // remove :orig when saving
-            const filename = path.join(config.StoragePath, user.id, img.replace(':orig', '').substring(img.lastIndexOf('/') + 1))
+            const filename = path.join(config.storagePath, user.id, img.replace(':orig', '').substring(img.lastIndexOf('/') + 1))
             const key = path.join(user.id, img.replace(':orig', '').substring(img.lastIndexOf('/') + 1))
 
             if (!config.argv.useRemoteStorage) {

@@ -24,13 +24,13 @@ async function LoadConfig (argv) {
     const useShuffle = argv.shuffle
     const mode = argv._
 
-    const StoragePath = (useRemoteStorage === 'true' ? path.join(__dirname, '/Storage_Remote') : path.join(__dirname, '/Storage'))
-    const dataFolderPath = (useRemoteStorage === 'true' ? path.join(__dirname, '/Storage_Remote') : path.join(__dirname, 'data'))
-    const dataPath = path.join(dataFolderPath, 'data.json')
-    const processedPath = path.join(dataFolderPath, 'processed.json')
-    const corruptedPath = path.join(dataFolderPath, 'corrupted.json')
-    const containerPath = path.join(dataFolderPath, 'container.json')
-    const skipContainerPath = path.join(dataFolderPath, 'skip.json')
+    let storagePath = (useRemoteStorage === 'true' ? path.join(__dirname, '/Storage_Remote') : path.join(__dirname, '/Storage'))
+    let dataFolderPath = (useRemoteStorage === 'true' ? path.join(__dirname, '/Storage_Remote') : path.join(__dirname, 'data'))
+    let dataPath = path.join(dataFolderPath, 'data.json')
+    let processedPath = path.join(dataFolderPath, 'processed.json')
+    let corruptedPath = path.join(dataFolderPath, 'corrupted.json')
+    let skipContainerPath = path.join(dataFolderPath, 'skip.json')
+    let containerPath = path.join(dataFolderPath, 'container.json')
 
     const currentDate = DateFormat(new Date())
     const remoteStorageCache = useRemoteStorage ? UpdateRemoteStorageCache() : []
@@ -42,7 +42,7 @@ async function LoadConfig (argv) {
     let skipUrls = []
 
     if (!argv.outputConfig) {
-        fs.ensureDirSync(StoragePath)
+        fs.ensureDirSync(storagePath)
     }
 
     if (!argv.overrideData && await !fs.exists(dataPath)) {
@@ -50,7 +50,24 @@ async function LoadConfig (argv) {
         process.exit()
     }
 
-    const rawData = argv.overrideData ?? await fs.readFile(dataPath)
+    let overrideData = argv.overrideData
+    try {
+        if (overrideData) {
+            JSON.parse(overrideData)
+        }
+    }
+    catch (error) {
+        const filepath = path.join(dataFolderPath, overrideData)
+        if (await fs.exists(filepath)) {
+            if (argv.verbose) {
+                console.error(`Override dataPath to ${filepath}`)
+            }
+            dataPath = filepath
+            overrideData = await fs.readFile(filepath)
+        }
+    }
+
+    const rawData = overrideData ?? await fs.readFile(dataPath)
 
     try {
         data = JSON.parse(rawData)
@@ -90,14 +107,29 @@ async function LoadConfig (argv) {
         }
     }
 
-    if (fs.existsSync(containerPath)) {
-        const rawContainer = await fs.readFile(containerPath)
-        try {
-            containers = JSON.parse(rawContainer)
-        } catch (err) {
-            console.error(`Failed Parsing containerPath: ${containerPath}, error = ${err}`)
-            process.exit()
+    let overrideContainer = argv.overrideContainer
+    try {
+        if (overrideContainer) {
+            JSON.parse(overrideContainer)
         }
+    }
+    catch (error) {
+        const filepath = path.join(dataFolderPath, overrideContainer)
+        if (await fs.exists(filepath)) {
+            if (argv.verbose) {
+                console.error(`Override containerPath to ${filepath}`)
+            }
+            containerPath = filepath
+            overrideContainer = await fs.readFile(filepath)
+        }
+    }
+
+    const rawContainer = overrideContainer ?? await fs.readFile(containerPath)
+    try {
+        containers = JSON.parse(rawContainer)
+    } catch (err) {
+        console.error(`Failed Parsing containerPath: ${containerPath}, error = ${err}`)
+        process.exit()
     }
 
     if (fs.existsSync(skipContainerPath)) {
@@ -111,7 +143,7 @@ async function LoadConfig (argv) {
     }
 
     const config = {
-        StoragePath,
+        storagePath,
         dataFolderPath,
         dataPath,
         processedPath,

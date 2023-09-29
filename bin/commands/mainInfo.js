@@ -72,6 +72,11 @@ function builder (yargs) {
             description: 'An option to override whole config by args',
             type: 'string',
         })
+        .option('overrideContainer', {
+            default: null,
+            description: 'An option to override container.json by args',
+            type: 'string',
+        })
         .option('outputConfig', {
             default: false,
             description: 'An option to output whole config instead saving it to local files',
