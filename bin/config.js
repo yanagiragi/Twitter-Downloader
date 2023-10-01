@@ -2,12 +2,12 @@ const fs = require('fs-extra')
 const path = require('path')
 const { DateFormat, FormatDate, FormatTwitterTimestamp } = require('./utils')
 
-function UpdateRemoteStorageCache () {
+function UpdateRemoteStorageCache (storagePath) {
     console.error('Updating Remote Storage Cache ...')
-    const res = fs.readdirSync(StoragePath)
+    const res = fs.readdirSync(storagePath)
         .filter(x => x.includes('.json') === false) // filter container.json and data.json
-        .map(x => fs.readdirSync(path.join(StoragePath, x))
-            .map(ele => path.join(StoragePath, x, ele)))
+        .map(x => fs.readdirSync(path.join(storagePath, x))
+            .map(ele => path.join(storagePath, x, ele)))
         .flat()
     console.error('Updating Remote Storage Cache Done, length = ' + res.length)
     return res
@@ -33,7 +33,7 @@ async function LoadConfig (argv) {
     let containerPath = path.join(dataFolderPath, 'container.json')
 
     const currentDate = DateFormat(new Date())
-    const remoteStorageCache = useRemoteStorage ? UpdateRemoteStorageCache() : []
+    const remoteStorageCache = useRemoteStorage ? UpdateRemoteStorageCache(storagePath) : []
 
     let data = []
     let originalOrder = []

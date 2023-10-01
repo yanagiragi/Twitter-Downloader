@@ -48,7 +48,7 @@ async function FetchImage (url, filename) {
 		if (!resp.ok) throw new Error(`Error When Downloading ${url}`)
 		await streamPipeline(await resp.body, fs.createWriteStream(filename))
 	} catch (error) {
-		console.log(`Error when download ${url}`)
+		console.log(`Error when download ${url}, error = ${error}`)
 		return false
 	}
 

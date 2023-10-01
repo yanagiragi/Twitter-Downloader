@@ -59,7 +59,7 @@ async function UpdateImage (config) {
     for (let i = 0; i < config.data.length; ++i) {
         const user = config.data[i]
 
-        await fs.ensureDir(`${config.StoragePath}/${user.id}`)
+        await fs.ensureDir(`${config.storagePath}/${user.id}`)
 
         const imgs = config.containers[user.id].reduce((acc, ele) => {
             if (ele.hasPhoto) { return acc.concat([...ele.photos]) } else { return acc }
