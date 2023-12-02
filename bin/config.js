@@ -80,6 +80,10 @@ async function LoadConfig (argv) {
         if (mode !== 'list') {
             data = data.filter(x => typeof x.ignore === 'undefined' && x.ignore !== true)
         }
+
+        // skip comment out configs
+        data = data.filter(x => x.skip != true)
+
     } catch (err) {
         console.error(`Failed Parsing dataPath: ${(argv.overrideData ?? dataPath)}, error = ${err}`)
         process.exit()
