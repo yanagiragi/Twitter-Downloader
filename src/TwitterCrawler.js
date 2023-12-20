@@ -547,7 +547,8 @@ class TwitterCrawler {
 			'who-to-follow-',
 			'cursor-top-',
 			'cursor-bottom-',
-			'profile-conversation-'
+			'profile-conversation-',
+			'profile-grid-'
 		]
 
 		// only handle for two types for now
