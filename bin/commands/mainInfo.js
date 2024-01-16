@@ -170,7 +170,7 @@ async function UpdateUserMainInfo (config, user) {
         const crawler = new TwitterCrawler(account, config.argv.cookie, config.argv.verbose, breakHandler, config.argv.maxDepth)
         crawler.displayFetchedTweets = config.argv.displayFetchedTweets
         crawler.saveDuration = config.argv.saveDuration
-        crawler.saveSnapShot = async () => SaveContainer(argv, config)
+        crawler.saveSnapShot = async () => SaveContainer(config)
         crawler.bottomCursor = config.argv.overrideCursor ?? ''
 
         const [crawlResult, crawlRetweets] = await crawler.CrawlFromMainPage()

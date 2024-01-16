@@ -450,7 +450,7 @@ class TwitterCrawler {
 		const data = await this.FetchFromMedia()
 
 		if (data?.error) {
-			console.error(`Detect error when fetch tweets of ${this.account}, Error = ${JSON.stringify(data)}`)
+			console.error(`Detect error when fetch tweets of ${this.account}, Error = ${data.error}`)
 			return [this.fetchResults, this.fetchRetweets]
 		}
 
@@ -612,15 +612,28 @@ class TwitterCrawler {
 	}
 
 	GetEntries (data) {
-		const root = data.data.user.result.timeline ?? data.data.user.result.timeline_v2
-		const entries = root.timeline.instructions.filter(x => x.type === 'TimelineAddEntries')[0].entries
+		const type_whitelist = [
+			'TimelineAddEntries',
+			'TimelineAddToModule'
+		]
+		const root = data.data.user.result.timeline ?? data.data.user.result.timeline_v2 ?? data.user
+		const entries = root.timeline.instructions
+			.filter(x => type_whitelist.some(type => x.type === type))
+			.flatMap(x => x.entries ?? x.moduleItems)
+		if (!entries) {
+			console.log('log')
+		}
+		const result = [
+			entries,
+			entries.map(x => x?.content?.items),
+		].flat(Infinity).filter(Boolean)
 		if (!this.bottomCursor) {
 			return [
-				entries,
+				result,
 				root.timeline.instructions.filter(x => x.type === 'TimelinePinEntry')?.[0]?.entry // deal tweets that are pinned
 			].flat().filter(Boolean)
 		}
-		return entries
+		return result
 	}
 }
 
