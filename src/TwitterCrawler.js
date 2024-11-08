@@ -4,7 +4,7 @@ const { string } = require('easy-table')
 
 const UserAgent = 'User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:84.0) Gecko/20100101 Firefox/84.0'
 
-const defaulfCsrfToken = 'a1f272646de62b7f37cf2104814fceab'
+const defaulfCsrfToken = '846d8ee4910f2dac8da726ce07b297c84b3083cdbca2216b61a35d38eecf8f891f60f0d27f5fc4d88feec041392dd2ab713f73af5bdc2a8740d5057b2e0200b7aa145d4cfedff613c139447b0f01b46a'
 
 class TwitterTweet {
 	constructor(tweetId, photos, timestamp, content, isSensitive, videos = []) {
@@ -88,14 +88,16 @@ class TwitterCrawler {
 	}
 
 	async GetRestID () {
-		const uri = `https://api.twitter.com/graphql/-xfUfZsnR_zqjFd-IfrN5A/UserByScreenName?variables=%7B%22screen_name%22%3A%22${this.account}%22%2C%22withHighlightedLabel%22%3Atrue%7D`
+		const variables = `{"screen_name":"${this.account}"}`
+		const uri = `https://x.com/i/api/graphql/BQ6xjFU6Mgm-WhEP3OiT9w/UserByScreenName?variables=${encodeURIComponent(variables)}&features=%7B%22hidden_profile_subscriptions_enabled%22%3Atrue%2C%22rweb_tipjar_consumption_enabled%22%3Atrue%2C%22responsive_web_graphql_exclude_directive_enabled%22%3Atrue%2C%22verified_phone_label_enabled%22%3Afalse%2C%22subscriptions_verification_info_is_identity_verified_enabled%22%3Atrue%2C%22subscriptions_verification_info_verified_since_enabled%22%3Atrue%2C%22highlights_tweets_tab_ui_enabled%22%3Atrue%2C%22responsive_web_twitter_article_notes_tab_enabled%22%3Atrue%2C%22subscriptions_feature_can_gift_premium%22%3Atrue%2C%22creator_subscriptions_tweet_preview_api_enabled%22%3Atrue%2C%22responsive_web_graphql_skip_user_profile_image_extensions_enabled%22%3Afalse%2C%22responsive_web_graphql_timeline_navigation_enabled%22%3Atrue%7D&fieldToggles=%7B%22withAuxiliaryUserLabels%22%3Afalse%7D`
 		const options = {
 			headers: {
 				'User-Agent': UserAgent,
 				'Accept': '*/*',
 				'content-type': 'application/json',
 				'authorization': this.authorization,
-				'x-guest-token': this.guestId
+				'x-csrf-token': this.csrfToken,
+				'Cookie': this.cookie
 			}
 		}
 
@@ -104,7 +106,7 @@ class TwitterCrawler {
 
 		try {
 			const data = JSON.parse(raw)
-			const restId = data.data.user.rest_id
+			const restId = data.data.user.result.rest_id
 			return restId
 		} catch (err) {
 			throw new Error(`GetRestID() of ${this.account} Error: ${err}, Raw = ${raw}`)
