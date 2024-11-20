@@ -90,16 +90,7 @@ class TwitterCrawler {
 	async GetRestID () {
 		const variables = `{"screen_name":"${this.account}"}`
 		const uri = `https://x.com/i/api/graphql/BQ6xjFU6Mgm-WhEP3OiT9w/UserByScreenName?variables=${encodeURIComponent(variables)}&features=%7B%22hidden_profile_subscriptions_enabled%22%3Atrue%2C%22rweb_tipjar_consumption_enabled%22%3Atrue%2C%22responsive_web_graphql_exclude_directive_enabled%22%3Atrue%2C%22verified_phone_label_enabled%22%3Afalse%2C%22subscriptions_verification_info_is_identity_verified_enabled%22%3Atrue%2C%22subscriptions_verification_info_verified_since_enabled%22%3Atrue%2C%22highlights_tweets_tab_ui_enabled%22%3Atrue%2C%22responsive_web_twitter_article_notes_tab_enabled%22%3Atrue%2C%22subscriptions_feature_can_gift_premium%22%3Atrue%2C%22creator_subscriptions_tweet_preview_api_enabled%22%3Atrue%2C%22responsive_web_graphql_skip_user_profile_image_extensions_enabled%22%3Afalse%2C%22responsive_web_graphql_timeline_navigation_enabled%22%3Atrue%7D&fieldToggles=%7B%22withAuxiliaryUserLabels%22%3Afalse%7D`
-		const options = {
-			headers: {
-				'User-Agent': UserAgent,
-				'Accept': '*/*',
-				'content-type': 'application/json',
-				'authorization': this.authorization,
-				'x-csrf-token': this.csrfToken,
-				'Cookie': this.cookie
-			}
-		}
+		const options = this.GetOptions()
 
 		const resp = await fetch(uri, options)
 		const raw = await resp.text()
@@ -376,11 +367,9 @@ class TwitterCrawler {
 			throw new Error('Error When Parsing Rest ID')
 		}
 
-		const q = `(from%3A${this.account})%20until%3A${endDate}%20since%3A${startDate}`
-		const query = `include_profile_interstitial_type=1&include_blocking=1&include_blocked_by=1&include_followed_by=1&include_want_retweets=1&include_mute_edge=1&include_can_dm=1&include_can_media_tag=1&include_ext_has_nft_avatar=1&skip_status=1&cards_platform=Web-12&include_cards=1&include_ext_alt_text=true&include_quote_count=true&include_reply_count=1&tweet_mode=extended&include_entities=true&include_user_entities=true&include_ext_media_color=true&include_ext_media_availability=true&include_ext_sensitive_media_warning=true&include_ext_trusted_friends_metadata=true&send_error_codes=true&simple_quoted_tweet=true&count=${this.dataPerCount}&query_source=typed_query&pc=1&spelling_corrections=1&ext=mediaStats%2ChighlightedLabel%2ChasNftAvatar%2CvoiceInfo%2Cenrichments%2CsuperFollowMetadata%2CunmentionInfo`
-
-		const uri = `https://twitter.com/i/api/2/search/adaptive.json?${query}&q=${q}`
-		let options = this.GetOptions()
+		const variables = `{"rawQuery":"(from:${this.account}) until:${endDate} since:${startDate}","count":20,"querySource":"typed_query","product":"Top"}&features={"rweb_tipjar_consumption_enabled":true,"responsive_web_graphql_exclude_directive_enabled":true,"verified_phone_label_enabled":false,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_timeline_navigation_enabled":true,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":false,"communities_web_enable_tweet_community_results_fetch":true,"c9s_tweet_anatomy_moderator_badge_enabled":true,"articles_preview_enabled":true,"responsive_web_edit_tweet_api_enabled":true,"graphql_is_translatable_rweb_tweet_is_translatable_enabled":true,"view_counts_everywhere_api_enabled":true,"longform_notetweets_consumption_enabled":true,"responsive_web_twitter_article_tweet_consumption_enabled":true,"tweet_awards_web_tipping_enabled":false,"creator_subscriptions_quote_tweet_preview_enabled":false,"freedom_of_speech_not_reach_fetch_enabled":true,"standardized_nudges_misinfo":true,"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled":true,"rweb_video_timestamps_enabled":true,"longform_notetweets_rich_text_read_enabled":true,"longform_notetweets_inline_media_enabled":true,"responsive_web_enhance_cards_enabled":false}`
+		const uri = `https://twitter.com/i/api/graphql/MJpyQGqgklrVl_0X9gNy3A/SearchTimeline?variables=${variables}`
+		const options = this.GetOptions()
 
 		if (this.debug) {
 			console.error(uri, options)
@@ -505,24 +494,30 @@ class TwitterCrawler {
 	ParseSearchResult (restId, searchResults) {
 
 		const tweetContainer = []
-		const tweetSearches = Object.values(searchResults.globalObjects.tweets)
+		const tweetSearches = searchResults.data.search_by_raw_query.search_timeline.timeline.instructions[0].entries
 
-		for (const tweetSearch of tweetSearches) {
+		for (let i = 0; i < tweetSearches.length; ++i) {
+			const tweetSearch = tweetSearches[i]
 
 			// filter tweets not create from user
 			// case: https://twitter.com/search?q=(from%3Ahechi_zou)%20until%3A2017-04-15%20since%3A2017-04-14&src=typed_query&f=top
-			if (tweetSearch.user_id != restId) {
+			const tweet =
+				tweetSearch?.content?.itemContent?.tweet_results?.result?.legacy ??	// "__typename": "Tweet"
+				tweetSearch?.content?.itemContent?.tweet_results?.tweet?.legacy		// "__typename": "TweetWithVisibilityResults"
+
+			if (tweet?.user_id_str != restId) {
 				continue
 			}
 
-			const tweetId = tweetSearch.id_str
-			const content = tweetSearch.full_text
-			const timestamp = tweetSearch.created_at // e.g. Sun May 31 02:40:23 +0000 2020
+			const tweetId = tweet.id_str
+			const content = tweet.full_text
+			const timestamp = tweet.created_at // e.g. Sun May 31 02:40:23 +0000 2020
 
-			const photos = this.GatherPhotosFromTweetSearch(tweetSearch)
-			const isSensitive = this.IsSensitiveContentFromTweetSearch(tweetSearch)
+			const photos = this.GatherPhotosFromTweetSearch(tweet)
+			const isSensitive = this.IsSensitiveContentFromTweetSearch(tweet)
 
 			const twitterTweet = new TwitterTweet(tweetId, photos, timestamp, content, isSensitive)
+
 			tweetContainer.push(twitterTweet)
 		}
 
