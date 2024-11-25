@@ -613,13 +613,20 @@ class TwitterCrawler {
 			'TimelineAddEntries',
 			'TimelineAddToModule'
 		]
-		const root = data.data.user.result.timeline ?? data.data.user.result.timeline_v2 ?? data.user
+		const root = data?.data?.user?.result?.timeline ?? data?.data?.user?.result?.timeline_v2 ?? data?.user
+		if (!root) {
+			console.trace(`Unable to find root in ${JSON.stringify(data)}`)
+			return []
+		}
+
 		const entries = root.timeline.instructions
 			.filter(x => type_whitelist.some(type => x.type === type))
 			.flatMap(x => x.entries ?? x.moduleItems)
 		if (!entries) {
-			console.log('log')
+			console.trace(`Unable to find entries in ${JSON.stringify(root)}`)
+			return []
 		}
+
 		const result = [
 			entries,
 			entries.map(x => x?.content?.items),
