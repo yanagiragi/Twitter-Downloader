@@ -26,7 +26,14 @@ function builder (yargs) {
             default: true,
             type: 'boolean',
         })
-
+        .option('webhook', {
+            default: null,
+            type: 'string',
+        })
+        .option('webhook-token', {
+            default: null,
+            type: 'string',
+        })
 }
 
 /**
@@ -84,7 +91,7 @@ async function UpdateImage (config) {
             }
 
             if (!config.skipUrls.includes(img)) {
-                tasks.push({ index: tasks.length, img: img, filename: filename, key: key })
+                tasks.push({ index: tasks.length, img: img, filename: filename, key: key, userId: user.id })
             }
         }
     }
@@ -98,6 +105,30 @@ async function UpdateImage (config) {
         if (result) {
             config.processed.push(task.key)
             console.log(`Successfully Download ${task.img} as ${task.filename}`)
+        }
+
+        if (result && config.argv.webhook != null) {
+            const url = config.argv.webhook
+            const options = {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${config.argv['webhook-token']}`
+                },
+                body: JSON.stringify({
+                    url: task.img,
+                    userId: task.userId,
+                    message: `[Twitter-Downloader] [${task.userId}] downloaded ${task.img}`
+                })
+            }
+
+            const resp = await fetch(url, options)
+            if (resp.ok) {
+                console.log(`Successfully notify ${task.filename} downloaded`)
+            }
+            else {
+                const context = await resp.text()
+                console.log(`Unable to notify. Response = ${context}`)
+            }
         }
 
         return result
