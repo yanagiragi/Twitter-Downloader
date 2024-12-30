@@ -112,7 +112,8 @@ async function UpdateImage (config) {
             const options = {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${config.argv['webhook-token']}`
+                    'Authorization': `Bearer ${config.argv['webhook-token']}`,
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     url: task.img,
