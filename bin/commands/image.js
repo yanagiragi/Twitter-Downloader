@@ -3,6 +3,7 @@ const { LoadConfig, SaveConfig } = require('../config')
 const fs = require('fs-extra')
 const path = require('path')
 const pMap = require('p-map')
+const fetch = require('node-fetch')
 
 module.exports = {
     command: 'image',
