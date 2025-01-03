@@ -108,7 +108,7 @@ async function UpdateImage (config) {
             console.log(`Successfully Download ${task.img} as ${task.filename}`)
         }
 
-        if (result && config.argv.webhook != null) {
+        if (result && config.argv.webhook) {
             const url = config.argv.webhook
             const options = {
                 method: 'POST',
