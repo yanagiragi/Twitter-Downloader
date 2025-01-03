@@ -1,0 +1,20 @@
+name: twitter-dl
+
+services:
+  twitter-dl:
+    image: twitter-downloader
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - COOKIE=${COOKIE}
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      - WEBHOOK_TOKEN=${WEBHOOK_TOKEN}
+      - VERBOSE=${VERBOSE}
+    volumes:
+      - ${DATA_DIR}:/Twitter-Downloader/bin/data
+      - ${STORAGE_DIR}:/Twitter-Downloader/bin/Storage
+    restart: unless-stopped
+
+networks:
+  dmhy_network: {}

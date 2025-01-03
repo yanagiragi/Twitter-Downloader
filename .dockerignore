@@ -1,3 +1,4 @@
-bin
+bin/data
+bin/Storage
 node_modules
 npm-debug.log
