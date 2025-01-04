@@ -67,23 +67,30 @@ async function UpdateImage (config) {
     for (let i = 0; i < config.data.length; ++i) {
         const user = config.data[i]
 
-        await fs.ensureDir(`${config.storagePath}/${user.id}`)
-
         const imgs = config.containers[user.id].reduce((acc, ele) => {
             if (ele.hasPhoto) { return acc.concat([...ele.photos]) } else { return acc }
         }, [])
 
+        let hasTask = false
         for (let j = 0; j < imgs.length; ++j) {
             const img = imgs[j]
 
             // remove :orig when saving
             const filename = path.join(config.storagePath, user.id, img.replace(':orig', '').substring(img.lastIndexOf('/') + 1))
-            const key = path.join(user.id, img.replace(':orig', '').substring(img.lastIndexOf('/') + 1))
+            const key = path.join(user.id, img.replace(':orig', '').substring(img.lastIndexOf('/') + 1)).replace('\\', '/')
 
             if (!config.argv.useRemoteStorage) {
-                const existInCache = config.argv.useProcessedJson && config.processed.includes(key)
                 const existInDisk = await fs.exists(filename)
-                if (existInCache || existInDisk) {
+                if (config.argv.useProcessedJson) {
+                    if (config.processed.includes(key)) {
+                        continue
+                    }
+                    else if (existInDisk) {
+                        config.processed.push(key)
+                        continue
+                    }
+                }
+                else if (existInDisk) {
                     continue
                 }
             }
@@ -93,7 +100,12 @@ async function UpdateImage (config) {
 
             if (!config.skipUrls.includes(img)) {
                 tasks.push({ index: tasks.length, img: img, filename: filename, key: key, userId: user.id })
+                hasTask = true
             }
+        }
+
+        if (hasTask) {
+            await fs.ensureDir(`${config.storagePath}/${user.id}`)
         }
     }
 
