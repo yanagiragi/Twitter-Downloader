@@ -15,6 +15,3 @@ services:
       - ${DATA_DIR}:/Twitter-Downloader/bin/data
       - ${STORAGE_DIR}:/Twitter-Downloader/bin/Storage
     restart: unless-stopped
-
-networks:
-  dmhy_network: {}
